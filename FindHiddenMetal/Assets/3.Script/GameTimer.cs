@@ -105,6 +105,13 @@ public class GameTimer : MonoBehaviour
         OnTimeChanged?.Invoke(currentTime);
     }
 
+    // 진행 시간에 더한다 (오답 감점 등). 제한 시간이 있으면 남은 시간이 그만큼 줄어든다.
+    public void AddTime(float seconds)
+    {
+        CurrentTime += seconds;
+        OnTimeChanged?.Invoke(currentTime);
+    }
+
     public void SetTimeLimit(float seconds)
     {
         timeLimit = seconds;

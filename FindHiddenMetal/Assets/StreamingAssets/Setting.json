@@ -1,1 +1,22 @@
-{}
+{
+    "gridSize": 16,
+    "timeLimitSeconds": 0.0,
+    "wrongPenaltySeconds": 5.0,
+    "idleTimeoutSeconds": 90.0,
+    "resultAutoCloseSeconds": 20.0,
+    "rotateTimeoutSeconds": 15.0,
+    "rotateClockwise": true,
+    "rankingKeepDays": 3,
+    "rankingShowCount": 5,
+    "deviceControllerId": 1,
+    "baseTargets": [
+        { "x": 2, "y": 3 },
+        { "x": 6, "y": 1 },
+        { "x": 11, "y": 2 },
+        { "x": 13, "y": 6 },
+        { "x": 9, "y": 8 },
+        { "x": 3, "y": 10 },
+        { "x": 7, "y": 13 },
+        { "x": 12, "y": 12 }
+    ]
+}
