@@ -1,0 +1,123 @@
+{
+  "Button_Start": {
+    "pos": [
+      3.0,
+      -762.0
+    ],
+    "size": [
+      1030,
+      230
+    ],
+    "opacity": 255
+  },
+  "Button_Confirm": {
+    "pos": [
+      3.0,
+      -828.0
+    ],
+    "size": [
+      1080,
+      190
+    ],
+    "opacity": 255
+  },
+  "Button_Submit": {
+    "pos": [
+      354.0,
+      -783.0
+    ],
+    "size": [
+      380,
+      170
+    ],
+    "opacity": 255
+  },
+  "Button_Submit_Off": {
+    "pos": [
+      354.0,
+      -783.0
+    ],
+    "size": [
+      380,
+      170
+    ],
+    "opacity": 77
+  },
+  "Button_Home": {
+    "pos": [
+      -346.0,
+      -783.0
+    ],
+    "size": [
+      380,
+      170
+    ],
+    "opacity": 255
+  },
+  "Cell_Select": {
+    "pos": [
+      -509.0,
+      596.0
+    ],
+    "size": [
+      92,
+      88
+    ],
+    "opacity": 255
+  },
+  "Mark_Match": {
+    "pos": [
+      -369.5,
+      762.5
+    ],
+    "size": [
+      65,
+      63
+    ],
+    "opacity": 255
+  },
+  "Mark_Correct": {
+    "pos": [
+      -302.5,
+      762.5
+    ],
+    "size": [
+      65,
+      63
+    ],
+    "opacity": 255
+  },
+  "Mark_Wrong": {
+    "pos": [
+      -236.5,
+      762.5
+    ],
+    "size": [
+      65,
+      63
+    ],
+    "opacity": 255
+  },
+  "RankRow_Mine": {
+    "pos": [
+      0.0,
+      -690.0
+    ],
+    "size": [
+      1050,
+      90
+    ],
+    "opacity": 255
+  },
+  "Badge_MyRank": {
+    "pos": [
+      -90.0,
+      -690.0
+    ],
+    "size": [
+      130,
+      50
+    ],
+    "opacity": 255
+  }
+}

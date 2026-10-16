@@ -5,13 +5,18 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 // 격자 한 칸. 선택 표시(Highlight), 정답/오답 마크, 정답 공개 마크를 담당한다.
+// 칸 번호와 격자 선은 정적 레이어 그림에 있고, 칸은 그 위에 투명하게 겹친다.
+// 진행 화면 칸(GridCell)과 결과 화면 칸(ResultCell)이 같은 스크립트를 쓴다.
 // 정답/오답 마크는 다음 위치 확인까지 남겨 두거나(keep) 잠깐 보였다 사라지게 할 수 있다.
 // 마크가 남아 있는 동안 그 칸은 다시 고를 수 없다(IsLocked).
 public class GridCellView : MonoBehaviour
 {
+    [Tooltip("비워두면 누를 수 없음 (결과 화면)")]
     [SerializeField] private Button button;
+    [Tooltip("선택 표시. 비워두면 표시하지 않음")]
     [SerializeField] private GameObject highlight;
     [SerializeField] private CanvasGroup foundMark;
+    [Tooltip("정답 공개(못 찾은 금속). 비워두면 표시하지 않음")]
     [SerializeField] private GameObject revealMark;
     [Tooltip("오답 표시. 비워두면 표시하지 않음")]
     [SerializeField] private CanvasGroup wrongMark;

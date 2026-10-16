@@ -4,24 +4,26 @@ using System.Text;
 using UnityEngine;
 
 // 숨은 금속 찾기 체험 흐름.
-// Idle → Guide → Play → Result → Ready(원판 회전 대기) → Idle (또는 다시 체험 시 Play)
+// Idle → Guide → Countdown → Play → Result → Ready(원판 회전 대기) → Idle (또는 다시 체험 시 Countdown)
 //
-// - 칸을 최대 8개 고르고 위치 확인 → 고른 칸마다 정답/오답 표시. 오답 칸마다 기록에 감점 시간을 더한다.
-// - 8개를 모두 찾거나 제한 시간(설정 시)이 끝나면 결과 화면 + 장치 LED 점등(정답공개).
+// - 칸을 8개 모두 고르고 정답 확인을 한 번 누르면 바로 판정하고 결과 화면 + 장치 LED 점등(정답공개).
+// - 제한 시간이 끝나면 그때까지 고른 칸으로 판정한다(없으면 0개). 두 경우 모두 랭킹에 기록한다.
+// - 체험 중 HOME을 누르면 기록 없이 원판을 돌리고 대기 화면으로 간다.
 // - 결과 화면을 닫으면 LED 소등 + 원판 90도 회전, 완료 신호를 받은 뒤 다음 체험을 받는다.
 public class FlowController : MonoBehaviour
 {
-    public enum State { Idle, Guide, Play, Result, Ready }
+    public enum State { Idle, Guide, Countdown, Play, Result, Ready }
 
     [Header("패널")]
     [SerializeField] private IdlePanel idlePanel;
     [SerializeField] private GuidePanel guidePanel;
+    [SerializeField] private CountdownPanel countdownPanel;
     [SerializeField] private PlayPanel playPanel;
     [SerializeField] private ResultPanel resultPanel;
     [SerializeField] private ReadyPanel readyPanel;
 
     [Header("연출")]
-    [Tooltip("마지막 금속을 찾거나 시간이 끝난 뒤 결과 화면까지 기다리는 시간(초)")]
+    [Tooltip("시간이 끝난 뒤 결과 화면까지 기다리는 시간(초). 정답 확인을 누르면 바로 넘어간다")]
     [SerializeField] private float finishHoldSeconds = 2f;
 
     [Header("개발자용")]
@@ -46,8 +48,10 @@ public class FlowController : MonoBehaviour
         ranking = new RankingStore(Config.rankingKeepDays);
 
         if (idlePanel != null) idlePanel.OnStart += () => GoTo(State.Guide);
-        if (guidePanel != null) guidePanel.OnConfirm += () => GoTo(State.Play);
+        if (guidePanel != null) guidePanel.OnConfirm += () => GoTo(State.Countdown);
+        if (countdownPanel != null) countdownPanel.OnDone += () => { if (Current == State.Countdown) GoTo(State.Play); };
         if (playPanel != null) playPanel.OnSubmit += Submit;
+        if (playPanel != null) playPanel.OnHome += AbortPlay;
         if (resultPanel != null) resultPanel.OnClose += CloseResult;
         if (GameTimer.Instance != null) GameTimer.Instance.OnTimeOver += OnTimeOver;
         if (Device != null) Device.OnRotationDone += OnRotationDone;
@@ -81,8 +85,7 @@ public class FlowController : MonoBehaviour
         if (Current == State.Play && !finishing && GameTimer.Instance != null)
         {
             var timer = GameTimer.Instance;
-            bool hasLimit = timer.TimeLimit > 0f;
-            if (playPanel != null) playPanel.SetTime(hasLimit ? timer.RemainingTime : timer.CurrentTime, hasLimit);
+            if (playPanel != null) playPanel.SetTime(timer.CurrentTime, timer.TimeLimit);
         }
 
         CheckIdleTimeout();
@@ -95,6 +98,7 @@ public class FlowController : MonoBehaviour
 
         SetPanel(idlePanel, next == State.Idle);
         SetPanel(guidePanel, next == State.Guide);
+        SetPanel(countdownPanel, next == State.Countdown);
         SetPanel(playPanel, next == State.Play);
         SetPanel(resultPanel, next == State.Result);
         SetPanel(readyPanel, next == State.Ready);
@@ -103,6 +107,10 @@ public class FlowController : MonoBehaviour
         {
             case State.Idle:
                 Resources.UnloadUnusedAssets();
+                break;
+            case State.Countdown:
+                if (countdownPanel != null && Config.countdownSeconds > 0) countdownPanel.Begin(Config.countdownSeconds);
+                else GoTo(State.Play);
                 break;
             case State.Play:
                 BeginPlay();
@@ -121,74 +129,69 @@ public class FlowController : MonoBehaviour
         judge.Begin(targets);
         Debug.Log($"체험 시작 - 원판 {rotation}단계, 목표 {judge.TotalCount}개");
 
-        // 한 번에 목표 개수(8개)까지 고를 수 있다.
-        if (playPanel != null) playPanel.Begin(Config.gridSize, judge.TotalCount, judge.TotalCount);
+        // 목표 개수(8개)를 모두 골라야 정답 확인을 누를 수 있다.
+        if (playPanel != null) playPanel.Begin(Config.gridSize, judge.TotalCount);
         if (playPanel != null) playPanel.SetInteractable(true);
+        if (playPanel != null) playPanel.SetTime(0f, Config.timeLimitSeconds);
         ApplyDebugAnswers();
 
         if (GameTimer.Instance != null) GameTimer.Instance.SetTimeLimit(Config.timeLimitSeconds);
         if (GameManager.Instance != null) GameManager.Instance.StartGame();
     }
 
-    // 고른 칸을 한꺼번에 판정한다. 오답 칸마다 감점 시간을 더한다.
-    // 마크를 남길지는 ESC 설정창 값(keepFoundMark / keepWrongMark)을 따른다.
+    // 정답 확인은 한 번뿐: 고른 칸을 한꺼번에 판정하고 바로 결과 화면으로 간다.
     private void Submit(List<GridPos> positions)
     {
         if (Current != State.Play || finishing || positions == null || positions.Count == 0) return;
-
-        var settings = JsonManager.instance.gameSettingData;
-        int wrong = 0;
-        var log = new StringBuilder();
-        foreach (var p in positions)
-        {
-            JudgeResult result = judge.Judge(p.x, p.y);
-            if (result == JudgeResult.Wrong) wrong++;
-            log.Append($"{TargetLayout.ToLabel(p.x, p.y)}:{result} ");
-            if (playPanel != null) playPanel.ShowJudge(p.x, p.y, result, settings.keepFoundMark, settings.keepWrongMark);
-        }
-        Debug.Log($"위치 확인 {positions.Count}칸 (오답 {wrong}) → {log}");
-
-        if (wrong > 0 && Config.wrongPenaltySeconds > 0f)
-            if (GameTimer.Instance != null) GameTimer.Instance.AddTime(Config.wrongPenaltySeconds * wrong);
-
-        if (playPanel != null) playPanel.SetProgress(judge.FoundCount, judge.TotalCount);
-
-        if (judge.IsAllFound) StartCoroutine(Finish(true));
+        StartCoroutine(Finish(positions, false));
     }
 
+    // 시간이 끝나면 그때까지 고른 칸으로 판정한다.
     private void OnTimeOver()
     {
-        if (Current == State.Play && !finishing) StartCoroutine(Finish(false));
+        if (Current != State.Play || finishing) return;
+        var positions = playPanel != null ? playPanel.GetSelection() : new List<GridPos>();
+        StartCoroutine(Finish(positions, true));
     }
 
-    private IEnumerator Finish(bool success)
+    private void JudgeAll(List<GridPos> positions)
+    {
+        var log = new StringBuilder();
+        foreach (var p in positions)
+            log.Append($"{TargetLayout.ToLabel(p.x, p.y)}:{judge.Judge(p.x, p.y)} ");
+        Debug.Log($"정답 확인 {positions.Count}칸 - 정답 {judge.FoundCount}/{judge.TotalCount}, 오답 {judge.WrongCount} → {log}");
+    }
+
+    private IEnumerator Finish(List<GridPos> positions, bool timeOver)
     {
         finishing = true;
         float seconds = GameTimer.Instance != null ? GameTimer.Instance.CurrentTime : 0f;
-        if (!success && GameTimer.Instance != null) seconds = GameTimer.Instance.TimeLimit;
+        if (timeOver && GameTimer.Instance != null) seconds = GameTimer.Instance.TimeLimit;
+        JudgeAll(positions);
         if (GameManager.Instance != null) GameManager.Instance.EndGame();
 
-        // 정답공개: 화면 격자 + 장치 LED
-        if (playPanel != null) playPanel.RevealTargets(judge.Targets, judge.IsFound);
+        // 정답공개: 장치 LED (화면은 결과 격자에서 보여 준다)
+        if (playPanel != null) playPanel.SetInteractable(false);
         if (Device != null) Device.LedOn();
 
         var data = new ResultData
         {
-            success = success,
+            success = judge.IsAllFound,
             seconds = seconds,
             foundCount = judge.FoundCount,
             totalCount = judge.TotalCount,
             wrongCount = judge.WrongCount,
+            gridSize = Config.gridSize,
         };
-        if (success)
-        {
-            data.mine = ranking.Add(seconds, judge.WrongCount);
-            data.rank = ranking.GetRank(seconds);
-        }
-        data.playerCount = ranking.Count;
+        foreach (var p in judge.Targets)
+            (judge.IsFound(p.x, p.y) ? data.found : data.missed).Add(p);
+        data.wrong.AddRange(judge.WrongPositions);
+
+        data.mine = ranking.Add(seconds, judge.FoundCount, judge.TotalCount, judge.WrongCount);
+        data.rank = ranking.GetRank(data.mine);
         data.top = ranking.GetTop(Config.rankingShowCount);
 
-        yield return new WaitForSecondsRealtime(finishHoldSeconds);
+        if (timeOver) yield return new WaitForSecondsRealtime(finishHoldSeconds);
 
         if (resultPanel != null) resultPanel.Set(data);
         GoTo(State.Result);
@@ -215,7 +218,7 @@ public class FlowController : MonoBehaviour
     {
         if (Current != State.Ready) return;
         Debug.Log($"원판 회전 완료 - {index}단계");
-        GoTo(replayAfterReady ? State.Play : State.Idle);
+        GoTo(replayAfterReady ? State.Countdown : State.Idle);
     }
 
     private void CheckIdleTimeout()
@@ -238,11 +241,18 @@ public class FlowController : MonoBehaviour
         }
         else if (Current == State.Play && !finishing)
         {
-            // 체험을 중간에 떠난 경우: 기록 없이 원판만 돌려 다음 체험을 준비한다.
             Debug.Log("무입력 - 체험 중단");
-            if (GameManager.Instance != null) GameManager.Instance.EndGame();
-            ResetDevice(false);
+            AbortPlay();
         }
+    }
+
+    // 체험을 중간에 떠난 경우(HOME, 무입력): 기록 없이 원판만 돌려 다음 체험을 준비한다.
+    private void AbortPlay()
+    {
+        if (Current != State.Play || finishing) return;
+        Debug.Log("체험 중단 - 기록 없이 대기 화면으로");
+        if (GameManager.Instance != null) GameManager.Instance.EndGame();
+        ResetDevice(false);
     }
 
     // 개발자용 정답 위치 표시 (진행 화면에서만)

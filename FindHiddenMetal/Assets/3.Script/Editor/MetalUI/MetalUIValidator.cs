@@ -1,3 +1,4 @@
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -19,7 +20,7 @@ public static class MetalUIValidator
                 problems += Report($"정적 레이어 이미지가 없습니다: {StaticSpritePath(panel)}", null);
         }
 
-        foreach (string part in new[] { "GridCell", "RankRow" })
+        foreach (string part in new[] { "GridCell", "ResultCell", "RankRow" })
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PartPrefabPath(part));
             if (prefab == null)
@@ -85,11 +86,25 @@ public static class MetalUIValidator
             {
                 if (property.propertyType != SerializedPropertyType.ObjectReference) continue;
                 if (property.name == "m_Script" || property.objectReferenceValue != null) continue;
+                if (IsOptional(behaviour, property.name)) continue;
 
                 problems += Report($"{GetPath(behaviour.transform)} ({behaviour.GetType().Name}): '{property.displayName}' 연결이 비어 있습니다.", behaviour);
             }
         }
         return problems;
+    }
+
+    // Tooltip에 "비워두면"이라고 적힌 필드는 비어 있어도 된다.
+    private static bool IsOptional(MonoBehaviour behaviour, string fieldName)
+    {
+        for (var type = behaviour.GetType(); type != null; type = type.BaseType)
+        {
+            FieldInfo field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field == null) continue;
+            var tooltip = field.GetCustomAttribute<TooltipAttribute>();
+            return tooltip != null && tooltip.tooltip.Contains("비워두면");
+        }
+        return false;
     }
 
     private static string GetPath(Transform t)

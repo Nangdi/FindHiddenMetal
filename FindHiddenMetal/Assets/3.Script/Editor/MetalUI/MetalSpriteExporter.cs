@@ -8,34 +8,14 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static MetalUIKit;
 
-// 임시 스프라이트와 디자이너용 가이드 이미지를 PNG로 만든다.
-//  - Static/Static_xxx.png : 패널별 정적 레이어 (MetalStaticLayouts 내용을 렌더링)
-//  - Parts/*.png           : 카드 배경, 버튼, 게이지 등 동적 요소용 부품
-//  - _Guide/Guide_xxx.png  : 정적 레이어 위에 동적 요소 자리를 표시한 작업 가이드
+// 디자이너용 가이드 이미지와, 디자인 PNG가 없을 때 쓸 임시 이미지를 만든다.
+//  - Static/Static_xxx.png, Parts/*.png : 디자인 PSD에서 Docs/Design/export_psd.py로 뽑는다.
+//                                         파일이 없으면 분홍색 임시 이미지를 만들어 빠진 것이 바로 보이게 한다.
+//  - _Guide/Guide_xxx.png              : 정적 레이어 위에 동적 요소 자리를 표시한 작업 가이드
 // 디자인 PNG로 같은 경로의 파일을 덮어쓰면 씬/프리팹 수정 없이 바로 반영된다.
 public static class MetalSpriteExporter
 {
-    // 둥근 박스 부품 (9-slice). radius가 곧 slice 테두리 크기.
-    private static readonly (string name, Color color, int radius)[] ShapeParts =
-    {
-        ("Card_Bg", CardColor, 16),
-        ("Cell_Bg", Color.white, 6),       // 색은 프리팹이 칠한다
-        ("RankRow_Bg", Color.white, 8),    // 색은 프리팹이 칠한다
-    };
-
-    private const string DotName = "Dot"; // 흰 원. 발견/정답 마크 색은 프리팹이 칠한다
-    private const int DotSize = 64;
-
     private static readonly Color GuideColor = new Color(1f, 0.1f, 0.8f, 1f);
-
-    [MenuItem("Tools/숨은 금속 찾기/3. 임시 스프라이트 다시 내보내기 (덮어쓰기)", priority = 3)]
-    private static void ExportAllMenu()
-    {
-        bool ok = EditorUtility.DisplayDialog("숨은 금속 찾기",
-            "4.Sprite/Static, 4.Sprite/Parts의 PNG를 모두 임시 디자인으로 덮어씁니다.\n디자이너가 넣은 이미지도 사라집니다. 계속할까요?",
-            "덮어쓰기", "취소");
-        if (ok) Export(overwrite: true);
-    }
 
     [MenuItem("Tools/숨은 금속 찾기/2. 가이드 PNG 다시 만들기", priority = 2)]
     public static void ExportGuides()
@@ -50,53 +30,39 @@ public static class MetalSpriteExporter
                 continue;
             }
 
-            Texture2D tex = Render(ScreenWidth, ScreenHeight, false, root => DrawGuide(root, prefab));
-            WritePng(GuidePath(panel), tex, 0);
+            Texture2D tex = Render(ScreenWidth, ScreenHeight, root => DrawGuide(root, prefab));
+            WritePng(GuidePath(panel), tex);
         }
         Debug.Log($"가이드 PNG 생성 완료: {GuideDir}");
     }
 
-    // overwrite가 false면 없는 파일만 만든다 (디자이너가 넣은 파일 보호).
-    public static void Export(bool overwrite)
+    // 없는 디자인 PNG만 임시 이미지로 만든다 (있는 파일은 건드리지 않음).
+    public static void EnsurePlaceholders()
     {
         EnsureFolder(StaticDir);
         EnsureFolder(PartsDir);
         int count = 0;
 
-        foreach (var pair in MetalStaticLayouts.Panels)
-        {
-            string path = StaticSpritePath(pair.Key);
-            if (!overwrite && File.Exists(path)) continue;
-            WritePng(path, Render(ScreenWidth, ScreenHeight, false, pair.Value), 0);
-            count++;
-        }
-
-        foreach (var part in MetalStaticLayouts.TextParts)
-        {
-            string path = PartSpritePath(part.name);
-            if (!overwrite && File.Exists(path)) continue;
-            WritePng(path, Render(part.size.x, part.size.y, true, part.draw), 0);
-            count++;
-        }
-
-        foreach (var shape in ShapeParts)
-        {
-            string path = PartSpritePath(shape.name);
-            if (!overwrite && File.Exists(path)) continue;
-            int size = shape.radius * 2 + 2;
-            WritePng(path, RoundRect(size, size, shape.radius, shape.color), shape.radius);
-            count++;
-        }
-
-        string dotPath = PartSpritePath(DotName);
-        if (overwrite || !File.Exists(dotPath))
-        {
-            WritePng(dotPath, RoundRect(DotSize, DotSize, DotSize / 2, Color.white), 0);
-            count++;
-        }
+        foreach (string panel in PanelNames)
+            count += Placeholder(StaticSpritePath(panel), ScreenWidth, ScreenHeight);
+        foreach (var part in PartSizes)
+            count += Placeholder(PartSpritePath(part.name), part.width, part.height);
 
         if (count > 0)
-            Debug.Log($"임시 스프라이트 {count}개 생성 ({(overwrite ? "덮어쓰기" : "없는 파일만")})");
+            Debug.LogWarning($"디자인 PNG {count}개가 없어 분홍색 임시 이미지를 만들었습니다. Docs/Design/export_psd.py로 PSD에서 다시 뽑으세요.");
+    }
+
+    private static int Placeholder(string path, int width, int height)
+    {
+        if (File.Exists(path)) return 0;
+
+        var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        var pixels = new Color32[width * height];
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = PlaceholderColor;
+        tex.SetPixels32(pixels);
+        tex.Apply();
+        WritePng(path, tex);
+        return 1;
     }
 
     #region 가이드
@@ -113,7 +79,7 @@ public static class MetalSpriteExporter
             MarkDynamicArea((RectTransform)child);
         }
 
-        var legend = CreateText(root, "Legend", "■ 분홍 박스 = 동적 요소 자리 (정적 PNG에 그리지 말 것)",
+        var legend = CreateText(root, "Legend", "분홍 박스 = 동적 요소 자리 (정적 PNG에 그리지 말 것)",
             new Vector2(0, ScreenHeight * 0.5f - 20), new Vector2(ScreenWidth, 40), 24, GuideColor, true);
         legend.alignment = TextAlignmentOptions.Center;
     }
@@ -151,7 +117,7 @@ public static class MetalSpriteExporter
     #region 렌더링
 
     // 임시 프리뷰 씬에 UI를 만들어 카메라로 찍는다. 현재 씬은 건드리지 않는다.
-    private static Texture2D Render(int width, int height, bool transparent, Action<RectTransform> build)
+    private static Texture2D Render(int width, int height, Action<RectTransform> build)
     {
         Scene scene = EditorSceneManager.NewPreviewScene();
         RenderTexture rt = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
@@ -187,8 +153,7 @@ public static class MetalSpriteExporter
                 text.ForceMeshUpdate(true, true);
             Canvas.ForceUpdateCanvases();
 
-            Color32[] onBlack = Capture(cam, rt, Color.black);
-            Color32[] pixels = transparent ? Unblend(onBlack, Capture(cam, rt, Color.white)) : Opaque(onBlack);
+            Color32[] pixels = Opaque(Capture(cam, rt, Color.black));
 
             var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
             tex.SetPixels32(pixels);
@@ -226,68 +191,11 @@ public static class MetalSpriteExporter
         return pixels;
     }
 
-    // 검은/흰 배경에 각각 찍은 결과로 원래 색과 투명도를 되살린다.
-    // (배경색 = c*a + bg*(1-a) 이므로 두 결과의 차이가 1-a)
-    private static Color32[] Unblend(Color32[] onBlack, Color32[] onWhite)
+    private static void WritePng(string path, Texture2D tex)
     {
-        var result = new Color32[onBlack.Length];
-        for (int i = 0; i < result.Length; i++)
-        {
-            Color32 b = onBlack[i];
-            Color32 w = onWhite[i];
-            float diff = ((w.r - b.r) + (w.g - b.g) + (w.b - b.b)) / (3f * 255f);
-            float a = Mathf.Clamp01(1f - diff);
-            if (a <= 0.002f)
-            {
-                result[i] = new Color32(0, 0, 0, 0);
-                continue;
-            }
-
-            result[i] = new Color32(
-                (byte)Mathf.Clamp(Mathf.RoundToInt(b.r / a), 0, 255),
-                (byte)Mathf.Clamp(Mathf.RoundToInt(b.g / a), 0, 255),
-                (byte)Mathf.Clamp(Mathf.RoundToInt(b.b / a), 0, 255),
-                (byte)Mathf.RoundToInt(a * 255f));
-        }
-        return result;
-    }
-
-    // 안티에일리어싱된 둥근 사각형
-    private static Texture2D RoundRect(int width, int height, int radius, Color color)
-    {
-        var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-        var pixels = new Color[width * height];
-        Vector2 half = new Vector2(width, height) * 0.5f;
-        Vector2 inner = half - Vector2.one * radius;
-
-        for (int y = 0; y < height; y++)
-        for (int x = 0; x < width; x++)
-        {
-            Vector2 p = new Vector2(x + 0.5f, y + 0.5f) - half;
-            Vector2 q = new Vector2(Mathf.Abs(p.x) - inner.x, Mathf.Abs(p.y) - inner.y);
-            float dist = new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f)).magnitude - radius;
-            float coverage = Mathf.Clamp01(0.5f - dist);
-            pixels[y * width + x] = new Color(color.r, color.g, color.b, color.a * coverage);
-        }
-
-        tex.SetPixels(pixels);
-        tex.Apply();
-        return tex;
-    }
-
-    private static void WritePng(string path, Texture2D tex, int sliceBorder)
-    {
-        bool isNew = !File.Exists(path);
         File.WriteAllBytes(path, tex.EncodeToPNG());
         UnityEngine.Object.DestroyImmediate(tex);
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-
-        // 9-slice 테두리는 처음 만들 때만 정한다. (이후 디자이너가 Sprite Editor에서 바꾼 값은 유지)
-        if (isNew && sliceBorder > 0 && AssetImporter.GetAtPath(path) is TextureImporter importer)
-        {
-            importer.spriteBorder = new Vector4(sliceBorder, sliceBorder, sliceBorder, sliceBorder);
-            importer.SaveAndReimport();
-        }
     }
 
     #endregion

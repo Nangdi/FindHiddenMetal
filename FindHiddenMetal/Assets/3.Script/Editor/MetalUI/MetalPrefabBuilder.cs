@@ -11,11 +11,11 @@ using static MetalUIKit;
 // 숨은 금속 찾기 UI 프리팹을 만들고 현재 씬에 배치한다.
 // 메뉴: Tools > 숨은 금속 찾기 > 1. 프리팹 생성 및 씬 적용
 //
-// 구조
+// 구조 (세로 1200x1920, 배치 좌표는 디자인 PSD 기준 / Docs/Design/psd_layout.json)
 //  Canvas_FindHiddenMetal.prefab
-//   └ Panel_xxx.prefab (Idle, Guide, Play, Result, Ready)
+//   └ Panel_xxx.prefab (Idle, Guide, Countdown, Play, Result, Ready)
 //      ├ StaticLayer  : 정적 PNG 한 장 (4.Sprite/Static/Static_xxx.png)
-//      └ 동적 요소    : 버튼, 격자(GridCell 런타임 생성), 기록, 랭킹 줄(RankRow 런타임 생성)
+//      └ 동적 요소    : 버튼, 숫자, 격자 칸(GridCell/ResultCell 런타임 생성), 랭킹 줄(RankRow 런타임 생성)
 //
 // 이미 있는 프리팹은 덮어쓰지 않는다. 직접 수정한 프리팹을 지키기 위해서다.
 // 프리팹을 처음 상태로 되돌리고 싶으면 해당 .prefab 파일을 지운 뒤 다시 실행한다.
@@ -24,18 +24,24 @@ public static class MetalPrefabBuilder
     private const string CanvasName = "Canvas_FindHiddenMetal";
     private const string SystemName = "MetalSystem";
 
+    // 랭킹 줄 (결과 화면 랭킹 박스 폭, 줄 높이)
+    private const float RankRowWidth = 1050f;
+    private const float RankRowHeight = 80f;
+
     private static GameObject cellPrefab;
+    private static GameObject resultCellPrefab;
     private static GameObject rankRowPrefab;
 
     [MenuItem("Tools/숨은 금속 찾기/1. 프리팹 생성 및 씬 적용", priority = 1)]
     public static void BuildAll()
     {
-        MetalSpriteExporter.Export(overwrite: false);
+        MetalSpriteExporter.EnsurePlaceholders();
         EnsureFolder(PartPrefabDir);
         EnsureFolder(PanelPrefabDir);
 
         // 부품
         cellPrefab = GetOrCreate(PartPrefabPath("GridCell"), CreateGridCell);
+        resultCellPrefab = GetOrCreate(PartPrefabPath("ResultCell"), CreateResultCell);
         rankRowPrefab = GetOrCreate(PartPrefabPath("RankRow"), CreateRankRow);
 
         // 패널
@@ -43,6 +49,7 @@ public static class MetalPrefabBuilder
         {
             { "Idle", CreateIdlePanel },
             { "Guide", CreateGuidePanel },
+            { "Countdown", CreateCountdownPanel },
             { "Play", CreatePlayPanel },
             { "Result", CreateResultPanel },
             { "Ready", CreateReadyPanel },
@@ -73,8 +80,9 @@ public static class MetalPrefabBuilder
 
     private static Sprite Part(string name) => LoadSprite(PartSpritePath(name));
 
-    // 글자가 구워진 스프라이트 버튼 (스프라이트 크기 = 배치 크기)
-    private static Button CreateSpriteButton(RectTransform parent, string name, string sprite, Vector2 pos, Vector2 size)
+    // 글자가 구워진 스프라이트 버튼 (스프라이트 크기 = 배치 크기). disabledSprite가 있으면 비활성 때 바꿔 보인다.
+    private static Button CreateSpriteButton(RectTransform parent, string name, string sprite, Vector2 pos, Vector2 size,
+        string disabledSprite = null)
     {
         RectTransform rt = Place(CreateRect(name, parent), pos, size);
         Image image = AddSprite(rt, Part(sprite));
@@ -83,77 +91,139 @@ public static class MetalPrefabBuilder
         image.raycastTarget = true;
         var button = rt.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
+        if (disabledSprite != null)
+        {
+            button.transition = Selectable.Transition.SpriteSwap;
+            var state = button.spriteState;
+            state.disabledSprite = Part(disabledSprite);
+            button.spriteState = state;
+        }
         return button;
+    }
+
+    // 디자인 글꼴 숫자 텍스트 (한 줄)
+    private static TextMeshProUGUI CreateNumber(RectTransform parent, string name, string sample, Vector2 pos, Vector2 size,
+        float fontSize, Color color, TMP_FontAsset font, TextAlignmentOptions alignment = TextAlignmentOptions.Center)
+    {
+        TextMeshProUGUI text = CreateText(parent, name, sample, pos, size, fontSize, color, true, alignment);
+        text.font = font;
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Overflow;
+        return text;
+    }
+
+    // 격자 영역. 칸 크기는 GridBoard가 런타임에 gridSize로 나눠 정한다.
+    private static GridBoard CreateBoard(RectTransform parent, string name, Vector2 pos, Vector2 size, GameObject cell)
+    {
+        RectTransform root = Place(CreateRect(name, parent), pos, size);
+        var grid = root.gameObject.AddComponent<GridLayoutGroup>();
+        grid.padding = new RectOffset(GridLine, GridLine, GridLine, GridLine);
+        grid.spacing = new Vector2(GridLine, GridLine);
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+        grid.childAlignment = TextAnchor.UpperLeft;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+
+        var board = root.gameObject.AddComponent<GridBoard>();
+        Wire(board, ("cellPrefab", cell.GetComponent<GridCellView>()));
+        return board;
     }
 
     #region 부품 프리팹
 
-    // 격자 한 칸: Background(터치 영역) / Highlight(선택) / FoundMark / RevealMark / WrongMark / DebugMark
+    // 마크 이미지 (칸을 꽉 채움). CanvasGroup은 남기지 않는 마크를 흐리게 사라지게 할 때 쓴다.
+    private static CanvasGroup CreateMark(RectTransform root, string name, string sprite)
+    {
+        RectTransform mark = StretchFull(CreateRect(name, root));
+        AddSprite(mark, Part(sprite));
+        var group = mark.gameObject.AddComponent<CanvasGroup>();
+        group.blocksRaycasts = false;
+        mark.gameObject.SetActive(false);
+        return group;
+    }
+
+    // 진행 화면 격자 한 칸: Background(투명 터치 영역) / Highlight(선택) / FoundMark(정답) / WrongMark(오답) / DebugMark
+    // 칸 번호와 격자 선은 Static_Play.png에 있다.
     private static GameObject CreateGridCell()
     {
         RectTransform root = CreateRect("GridCell", null);
-        root.sizeDelta = new Vector2(CellSize, CellSize);
+        root.sizeDelta = new Vector2(92, 88);
 
-        Image background = AddSprite(StretchFull(CreateRect("Background", root)), Part("Cell_Bg"), CellColor);
+        Image background = AddImage(StretchFull(CreateRect("Background", root)), Color.clear);
         background.raycastTarget = true;
 
         RectTransform highlight = StretchFull(CreateRect("Highlight", root));
-        AddSprite(highlight, Part("Cell_Bg"), AccentColor);
+        AddSprite(highlight, Part("Cell_Select"));
         highlight.gameObject.SetActive(false);
 
-        RectTransform found = Stretch(CreateRect("FoundMark", root), Vector2.zero, Vector2.one, 10);
-        AddSprite(found, Part("Dot"), FoundColor).preserveAspect = true;
-        var foundGroup = found.gameObject.AddComponent<CanvasGroup>();
-        foundGroup.blocksRaycasts = false;
-        found.gameObject.SetActive(false);
-
-        RectTransform reveal = Stretch(CreateRect("RevealMark", root), Vector2.zero, Vector2.one, 10);
-        AddSprite(reveal, Part("Dot"), RevealColor).preserveAspect = true;
-        reveal.gameObject.SetActive(false);
-
-        RectTransform wrong = Stretch(CreateRect("WrongMark", root), Vector2.zero, Vector2.one, 6);
-        AddSprite(wrong, Part("Mark_Wrong")).preserveAspect = true;
-        var wrongGroup = wrong.gameObject.AddComponent<CanvasGroup>();
-        wrongGroup.blocksRaycasts = false;
-        wrong.gameObject.SetActive(false);
+        CanvasGroup found = CreateMark(root, "FoundMark", "Mark_Correct");
+        CanvasGroup wrong = CreateMark(root, "WrongMark", "Mark_Wrong");
 
         // 개발자용 정답 위치 표시 (F2). 다른 마크 위에 작게 그린다.
-        RectTransform debug = Stretch(CreateRect("DebugMark", root), Vector2.zero, Vector2.one, 22);
+        RectTransform debug = Stretch(CreateRect("DebugMark", root), Vector2.zero, Vector2.one, 30);
         AddSprite(debug, Part("Dot"), DebugColor).preserveAspect = true;
         debug.gameObject.SetActive(false);
 
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = background;
+        button.transition = Selectable.Transition.None;
 
         var view = root.gameObject.AddComponent<GridCellView>();
         Wire(view,
             ("button", button),
             ("highlight", highlight.gameObject),
-            ("foundMark", foundGroup),
-            ("revealMark", reveal.gameObject),
-            ("wrongMark", wrongGroup),
+            ("foundMark", found),
+            ("wrongMark", wrong),
             ("debugMark", debug.gameObject));
         return root.gameObject;
     }
 
-    // 랭킹 한 줄: 순위 / 시간. Highlight = 방금 체험한 기록
+    // 결과 화면 격자 한 칸 (누를 수 없음): FoundMark(정답 일치) / RevealMark(못 찾은 정답) / WrongMark(오답)
+    private static GameObject CreateResultCell()
+    {
+        RectTransform root = CreateRect("ResultCell", null);
+        root.sizeDelta = new Vector2(65, 63);
+
+        CanvasGroup found = CreateMark(root, "FoundMark", "Mark_Match");
+        CanvasGroup reveal = CreateMark(root, "RevealMark", "Mark_Correct");
+        CanvasGroup wrong = CreateMark(root, "WrongMark", "Mark_Wrong");
+
+        var view = root.gameObject.AddComponent<GridCellView>();
+        Wire(view,
+            ("foundMark", found),
+            ("revealMark", reveal.gameObject),
+            ("wrongMark", wrong));
+        return root.gameObject;
+    }
+
+    // 랭킹 한 줄의 글자 (순위 / 기록 시각 / 소요 시간 / 찾은 개수). 아이콘과 줄 배경은 정적 레이어에 있다.
+    // x 좌표는 줄 왼쪽 끝 기준 PSD 값. 기록 시각은 Paperlogy가 PSD 글꼴보다 넓어 30pt로 줄였다.
+    private static RankRowView AddRankTexts(RectTransform root, Color normal, Color accent)
+    {
+        float left = -RankRowWidth * 0.5f;
+        TMP_Text rank = CreateNumber(root, "Rank", "1위", new Vector2(left + 64, 0), new Vector2(90, 60), 28, normal, BoldFont);
+        TMP_Text date = CreateNumber(root, "Date", "26.10.06 10:21:43", new Vector2(left + 131 + 170, 0), new Vector2(340, 60), 30,
+            normal, BoldFont, TextAlignmentOptions.MidlineLeft);
+        TMP_Text time = CreateNumber(root, "Time", "00:51", new Vector2(left + 787 + 60, 0), new Vector2(120, 60), 34,
+            normal, MediumFont, TextAlignmentOptions.MidlineLeft);
+        TMP_Text found = CreateNumber(root, "Found", "8/8", new Vector2(left + 1003 - 50, 0), new Vector2(100, 60), 34,
+            normal, MediumFont, TextAlignmentOptions.MidlineRight);
+
+        var view = root.gameObject.AddComponent<RankRowView>();
+        Wire(view, ("rankText", rank), ("dateText", date), ("timeText", time), ("foundText", found));
+
+        var so = new SerializedObject(view);
+        so.FindProperty("normalColor").colorValue = normal;
+        so.FindProperty("accentColor").colorValue = accent;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        return view;
+    }
+
     private static GameObject CreateRankRow()
     {
         RectTransform root = CreateRect("RankRow", null);
-        root.sizeDelta = new Vector2(740, 72);
-        AddSprite(root, Part("RankRow_Bg"), RankRowColor);
-
-        RectTransform highlight = StretchFull(CreateRect("Highlight", root));
-        AddSprite(highlight, Part("RankRow_Bg"), new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.35f));
-        highlight.gameObject.SetActive(false);
-
-        TMP_Text rankText = AddText(Stretch(CreateRect("Rank", root), new Vector2(0.04f, 0f), new Vector2(0.4f, 1f)),
-            "1위", 34, TextColor, true, TextAlignmentOptions.MidlineLeft);
-        TMP_Text timeText = AddText(Stretch(CreateRect("Time", root), new Vector2(0.5f, 0f), new Vector2(0.96f, 1f)),
-            "01:23", 34, TextColor, true, TextAlignmentOptions.MidlineRight);
-
-        var view = root.gameObject.AddComponent<RankRowView>();
-        Wire(view, ("rankText", rankText), ("timeText", timeText), ("highlight", highlight.gameObject));
+        root.sizeDelta = new Vector2(RankRowWidth, RankRowHeight);
+        AddRankTexts(root, TextColor, AccentColor);
         return root.gameObject;
     }
 
@@ -172,7 +242,7 @@ public static class MetalPrefabBuilder
     private static GameObject CreateIdlePanel()
     {
         RectTransform panel = CreatePanelRoot("Idle");
-        Button start = CreateSpriteButton(panel, "StartButton", "Button_Start", new Vector2(0, -300), new Vector2(520, 130));
+        Button start = CreateSpriteButton(panel, "StartButton", "Button_Start", new Vector2(3, -762), new Vector2(1030, 230));
 
         var view = panel.gameObject.AddComponent<IdlePanel>();
         Wire(view, ("startButton", start));
@@ -182,10 +252,21 @@ public static class MetalPrefabBuilder
     private static GameObject CreateGuidePanel()
     {
         RectTransform panel = CreatePanelRoot("Guide");
-        Button confirm = CreateSpriteButton(panel, "ConfirmButton", "Button_Confirm", new Vector2(0, -470), new Vector2(520, 130));
+        Button confirm = CreateSpriteButton(panel, "ConfirmButton", "Button_Confirm", new Vector2(3, -828), new Vector2(1080, 190));
 
         var view = panel.gameObject.AddComponent<GuidePanel>();
         Wire(view, ("confirmButton", confirm));
+        return panel.gameObject;
+    }
+
+    private static GameObject CreateCountdownPanel()
+    {
+        RectTransform panel = CreatePanelRoot("Countdown");
+        TMP_Text number = CreateNumber(panel, "NumberText", "3", new Vector2(0, -62), new Vector2(400, 360), 300,
+            CountdownColor, ExtraBoldFont);
+
+        var view = panel.gameObject.AddComponent<CountdownPanel>();
+        Wire(view, ("numberText", number));
         return panel.gameObject;
     }
 
@@ -193,39 +274,29 @@ public static class MetalPrefabBuilder
     {
         RectTransform panel = CreatePanelRoot("Play");
 
-        // 격자 칸은 PlayPanel이 gridSize만큼 생성한다. 틀과 열/행 표기는 정적 레이어에 있다.
-        RectTransform gridRoot = Place(CreateRect("GridRoot", panel), GridCenter, new Vector2(GridPixelSize, GridPixelSize));
-        var grid = gridRoot.gameObject.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(CellSize, CellSize);
-        grid.spacing = new Vector2(CellSpacing, CellSpacing);
-        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
-        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-        grid.childAlignment = TextAnchor.MiddleCenter;
-        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = GridCount;
+        // 격자 칸은 GridBoard가 gridSize만큼 생성한다. 격자 선과 칸 번호는 정적 레이어에 있다.
+        GridBoard board = CreateBoard(panel, "GridRoot", PlayGridCenter, PlayGridSize, cellPrefab);
 
-        TMP_Text found = CreateText(panel, "FoundText", "0 / 8", MetalStaticLayouts.FoundBoxCenter + new Vector2(0, -30),
-            new Vector2(560, 110), 84, TextColor, true);
-        TMP_Text timeLabel = CreateText(panel, "TimeLabel", "진행 시간", MetalStaticLayouts.TimeBoxCenter + new Vector2(0, 70),
-            new Vector2(560, 50), 32, SubTextColor, true);
-        TMP_Text time = CreateText(panel, "TimeText", "00:00", MetalStaticLayouts.TimeBoxCenter + new Vector2(0, -30),
-            new Vector2(560, 110), 84, TextColor, true);
+        // 선택 수 ("/ 8"은 정적 레이어)
+        TMP_Text selectCount = CreateNumber(panel, "SelectCountText", "0", new Vector2(-88, -566), new Vector2(120, 80), 66,
+            GreenColor, BoldFont, TextAlignmentOptions.MidlineRight);
 
-        TMP_Text selectCount = CreateText(panel, "SelectCountText", "고른 칸 <color=#E42C34>0</color> / 8",
-            new Vector2(MetalStaticLayouts.InfoX, -265), new Vector2(560, 50), 34, TextColor, true);
-        Button submit = CreateSpriteButton(panel, "SubmitButton", "Button_Submit",
-            new Vector2(MetalStaticLayouts.InfoX, -370), new Vector2(520, 130));
+        // 시간 (흰 원 박스와 주황 원은 정적 레이어)
+        TMP_Text time = CreateNumber(panel, "TimeText", "60", new Vector2(0, -775), new Vector2(190, 110), 82,
+            LightTextColor, BoldFont);
+
+        Button home = CreateSpriteButton(panel, "HomeButton", "Button_Home", new Vector2(-346, -783), new Vector2(380, 170));
+        Button submit = CreateSpriteButton(panel, "SubmitButton", "Button_Submit", new Vector2(354, -783), new Vector2(380, 170),
+            "Button_Submit_Off");
         submit.interactable = false;
 
         var view = panel.gameObject.AddComponent<PlayPanel>();
         Wire(view,
-            ("cellPrefab", cellPrefab.GetComponent<GridCellView>()),
-            ("gridRoot", gridRoot),
-            ("foundText", found),
+            ("board", board),
             ("timeText", time),
-            ("timeLabelText", timeLabel),
             ("selectCountText", selectCount),
-            ("submitButton", submit));
+            ("submitButton", submit),
+            ("homeButton", home));
         return panel.gameObject;
     }
 
@@ -233,48 +304,45 @@ public static class MetalPrefabBuilder
     {
         RectTransform panel = CreatePanelRoot("Result");
 
-        RectTransform success = Place(CreateRect("Group_Success", panel), new Vector2(0, 430), new Vector2(900, 140));
-        AddSprite(success, Part("Result_Title_Success")).preserveAspect = true;
-        RectTransform fail = Place(CreateRect("Group_Fail", panel), new Vector2(0, 430), new Vector2(900, 140));
-        AddSprite(fail, Part("Result_Title_Fail")).preserveAspect = true;
-        fail.gameObject.SetActive(false);
+        // 결과 격자 (격자 그림은 정적 레이어, 칸은 마크만)
+        GridBoard board = CreateBoard(panel, "ResultGrid", ResultGridCenter, ResultGridSize, resultCellPrefab);
 
-        // 기록 값 (라벨과 박스는 정적 레이어)
-        string[] names = { "TimeText", "FoundText", "WrongText", "RankText" };
-        string[] samples = { "01:23", "8 / 8", "2", "3위 <size=50%>/ 126명</size>" };
-        var values = new TMP_Text[names.Length];
-        for (int i = 0; i < names.Length; i++)
-        {
-            Vector2 pos = MetalStaticLayouts.RecordBoxCenter + new Vector2(180, MetalStaticLayouts.RecordRowY[i]);
-            values[i] = CreateText(panel, names[i], samples[i], pos, new Vector2(380, 100), 64, i == 3 ? AccentColor : TextColor, true,
-                TextAlignmentOptions.MidlineRight);
-        }
+        // 기록 값 (라벨과 남색 박스는 정적 레이어)
+        TMP_Text time = CreateNumber(panel, "TimeText", "01:23", new Vector2(-224, -158), new Vector2(200, 70), 48,
+            LightTextColor, BoldFont, TextAlignmentOptions.MidlineLeft);
+        TMP_Text found = CreateNumber(panel, "FoundText", "5개", new Vector2(157, -158), new Vector2(200, 70), 50,
+            GreenColor, ExtraBoldFont, TextAlignmentOptions.MidlineLeft);
+        TMP_Text wrong = CreateNumber(panel, "WrongText", "3개", new Vector2(454, -158), new Vector2(130, 70), 50,
+            AccentColor, ExtraBoldFont, TextAlignmentOptions.MidlineLeft);
 
-        // 랭킹 줄 (표시 인원만큼 런타임에 생성). 박스와 제목은 정적 레이어에 있다.
-        RectTransform list = Place(CreateRect("RankList", panel), MetalStaticLayouts.RankBoxCenter + new Vector2(0, -40),
-            new Vector2(760, 540));
+        // 랭킹 줄 (표시 인원만큼 런타임에 생성). 박스와 아이콘은 정적 레이어에 있다.
+        RectTransform list = Place(CreateRect("RankList", panel), new Vector2(0, -436), new Vector2(RankRowWidth, RankRowHeight * 5));
         var layout = list.gameObject.AddComponent<VerticalLayoutGroup>();
-        layout.spacing = 10;
+        layout.spacing = 0;
         layout.childAlignment = TextAnchor.UpperCenter;
         layout.childControlWidth = true;
         layout.childControlHeight = false;
         layout.childForceExpandWidth = true;
         layout.childForceExpandHeight = false;
 
-        Button again = CreateSpriteButton(panel, "AgainButton", "Button_Again", new Vector2(-200, -500), new Vector2(360, 110));
-        Button home = CreateSpriteButton(panel, "HomeButton", "Button_Home", new Vector2(200, -500), new Vector2(360, 110));
+        // 나의 랭킹 줄 (주황 줄 + 배지)
+        RectTransform mine = Place(CreateRect("MineRow", panel), new Vector2(0, -690), new Vector2(RankRowWidth, 90));
+        AddSprite(mine, Part("RankRow_Mine"));
+        // 배지는 기록 시각 바로 뒤 (PSD보다 오른쪽: 글꼴 폭 차이)
+        AddSprite(Place(CreateRect("Badge", mine), new Vector2(-40, 0), new Vector2(130, 50)), Part("Badge_MyRank"));
+        RankRowView mineView = AddRankTexts(mine, LightTextColor, LightTextColor);
+
+        Button home = CreateSpriteButton(panel, "HomeButton", "Button_Home", new Vector2(4, -850), new Vector2(380, 170));
 
         var view = panel.gameObject.AddComponent<ResultPanel>();
         Wire(view,
-            ("successGroup", success.gameObject),
-            ("failGroup", fail.gameObject),
-            ("timeText", values[0]),
-            ("foundText", values[1]),
-            ("wrongText", values[2]),
-            ("rankText", values[3]),
+            ("board", board),
+            ("timeText", time),
+            ("foundText", found),
+            ("wrongText", wrong),
             ("rowPrefab", rankRowPrefab.GetComponent<RankRowView>()),
             ("rowRoot", list),
-            ("againButton", again),
+            ("mineRow", mineView),
             ("homeButton", home));
         return panel.gameObject;
     }
@@ -340,6 +408,7 @@ public static class MetalPrefabBuilder
         Wire(controller,
             ("idlePanel", canvas.GetComponentInChildren<IdlePanel>(true)),
             ("guidePanel", canvas.GetComponentInChildren<GuidePanel>(true)),
+            ("countdownPanel", canvas.GetComponentInChildren<CountdownPanel>(true)),
             ("playPanel", canvas.GetComponentInChildren<PlayPanel>(true)),
             ("resultPanel", canvas.GetComponentInChildren<ResultPanel>(true)),
             ("readyPanel", canvas.GetComponentInChildren<ReadyPanel>(true)));

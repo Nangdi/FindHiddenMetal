@@ -12,6 +12,7 @@ public class GridJudge
 {
     private readonly HashSet<long> targets = new HashSet<long>();
     private readonly HashSet<long> found = new HashSet<long>();
+    private readonly HashSet<long> wrong = new HashSet<long>();
 
     public int TotalCount => targets.Count;
     public int FoundCount => found.Count;
@@ -21,11 +22,17 @@ public class GridJudge
     {
         get { foreach (var k in targets) yield return FromKey(k); }
     }
+    // 오답으로 고른 칸 (같은 칸을 여러 번 틀려도 한 번)
+    public IEnumerable<GridPos> WrongPositions
+    {
+        get { foreach (var k in wrong) yield return FromKey(k); }
+    }
 
     public void Begin(IEnumerable<GridPos> targetPositions)
     {
         targets.Clear();
         found.Clear();
+        wrong.Clear();
         WrongCount = 0;
         foreach (var p in targetPositions)
             targets.Add(Key(p.x, p.y));
@@ -43,6 +50,7 @@ public class GridJudge
         }
 
         WrongCount++;
+        wrong.Add(key);
         return JudgeResult.Wrong;
     }
 

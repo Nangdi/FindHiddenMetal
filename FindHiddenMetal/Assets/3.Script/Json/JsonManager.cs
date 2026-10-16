@@ -13,10 +13,6 @@ public class GameSettingData
     public bool useUnityOnTop;
     // 마우스 커서 표시 여부. false면 커서를 숨긴다(키오스크/전시용).
     public bool showMouseCursor;
-    // 위치 확인 후 정답 표시를 다음 위치 확인까지 남길지 여부. false면 잠깐 보였다 사라진다.
-    public bool keepFoundMark = true;
-    // 위치 확인 후 오답 표시를 다음 위치 확인까지 남길지 여부. false면 잠깐 보였다 사라진다.
-    public bool keepWrongMark = true;
 }
 
 // 격자 좌표. x = 열(0 = 왼쪽, A열), y = 행(0 = 위쪽, 1행).
@@ -35,12 +31,12 @@ public class GridPos
 [Serializable]
 public class GameDynamicData
 {
-    // 격자 한 변의 칸 수 (16 → 16x16)
-    public int gridSize = 16;
+    // 격자 한 변의 칸 수 (12 → 12x12). 바꾸면 Static_Play/Static_Result.png의 격자 그림도 바꿔야 한다.
+    public int gridSize = 12;
     // 제한 시간(초). 0 이하이면 무제한.
-    public float timeLimitSeconds = 0f;
-    // 오답 시 기록에 더하는 시간(초). 제한 시간이 있으면 남은 시간이 그만큼 줄어든다.
-    public float wrongPenaltySeconds = 5f;
+    public float timeLimitSeconds = 60f;
+    // 체험 방법 → 체험 시작 사이 카운트다운(초). 0 이하이면 바로 시작.
+    public int countdownSeconds = 3;
     // 체험 중 무입력 시 대기화면 복귀(초). 0 이하이면 사용 안 함.
     public float idleTimeoutSeconds = 90f;
     // 결과 화면 자동 종료(초)
@@ -58,8 +54,8 @@ public class GameDynamicData
     // 회전 0단계일 때 탐지목표물 8개의 격자 좌표. 실제 장치 배치에 맞춰 수정.
     public List<GridPos> baseTargets = new List<GridPos>
     {
-        new GridPos(2, 3), new GridPos(6, 1), new GridPos(11, 2), new GridPos(13, 6),
-        new GridPos(9, 8), new GridPos(3, 10), new GridPos(7, 13), new GridPos(12, 12),
+        new GridPos(2, 2), new GridPos(5, 1), new GridPos(8, 2), new GridPos(10, 5),
+        new GridPos(7, 6), new GridPos(2, 8), new GridPos(5, 10), new GridPos(9, 9),
     };
 }
 

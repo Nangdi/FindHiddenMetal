@@ -6,37 +6,41 @@ using UnityEngine.UI;
 
 public class ResultData
 {
-    public bool success;      // 모두 찾음 (false = 시간 초과)
-    public float seconds;     // 소요 시간 (감점 포함)
+    public bool success;      // 모두 찾음
+    public float seconds;     // 정답 확인까지 걸린 시간 (시간 초과면 제한 시간)
     public int foundCount;
     public int totalCount;
     public int wrongCount;
-    public int rank;          // 성공일 때만 의미 있음
-    public int playerCount;   // 랭킹 보관 기간 안의 기록 수
+    public int rank;          // 나의 순위 (mine이 있을 때)
     public List<RankRecord> top;
-    public RankRecord mine;   // 목록에서 강조할 내 기록 (없으면 null)
+    public RankRecord mine;   // 나의 랭킹 줄에 표시할 기록 (없으면 숨김)
+
+    // 결과 격자
+    public int gridSize;
+    public List<GridPos> found = new List<GridPos>();   // 고른 칸 중 정답 (정답 일치)
+    public List<GridPos> missed = new List<GridPos>();  // 고르지 않은 정답 (정답)
+    public List<GridPos> wrong = new List<GridPos>();   // 고른 칸 중 오답 (X)
 }
 
-// 04. 완료화면 - 소요 시간, 발견 개수, 순위, 랭킹 목록. 정답 LED는 이 화면이 열릴 때 함께 켜진다.
+// 05. 결과 화면 - 결과 격자, 소요 시간/찾은 금속/오답 수, 랭킹 목록, 나의 랭킹.
+// 정답 LED는 이 화면이 열릴 때 함께 켜진다.
 public class ResultPanel : PanelBase
 {
-    [Header("성공/시간초과 묶음 (제목 등 고정 글자는 스프라이트)")]
-    [SerializeField] private GameObject successGroup;
-    [SerializeField] private GameObject failGroup;
+    [Header("결과 격자 (정답 일치 / 정답 / 오답 마크)")]
+    [SerializeField] private GridBoard board;
 
     [Header("기록")]
     [SerializeField] private TMP_Text timeText;
     [SerializeField] private TMP_Text foundText;
-    [Tooltip("비워두면 표시하지 않음")]
     [SerializeField] private TMP_Text wrongText;
-    [SerializeField] private TMP_Text rankText;
 
     [Header("랭킹 목록 (표시 인원은 Setting.json rankingShowCount)")]
     [SerializeField] private RankRowView rowPrefab;
     [SerializeField] private Transform rowRoot;
+    [Tooltip("나의 랭킹 줄")]
+    [SerializeField] private RankRowView mineRow;
 
     [Header("버튼")]
-    [SerializeField] private Button againButton;
     [SerializeField] private Button homeButton;
 
     // true = 다시 체험, false = 처음으로
@@ -46,7 +50,6 @@ public class ResultPanel : PanelBase
 
     private void Awake()
     {
-        if (againButton != null) againButton.onClick.AddListener(() => OnClose?.Invoke(true));
         if (homeButton != null) homeButton.onClick.AddListener(() => OnClose?.Invoke(false));
     }
 
@@ -54,18 +57,32 @@ public class ResultPanel : PanelBase
     {
         if (data == null) return;
 
-        if (successGroup != null) successGroup.SetActive(data.success);
-        if (failGroup != null) failGroup.SetActive(!data.success);
-
         if (timeText != null) timeText.text = PlayPanel.FormatTime(data.seconds);
-        if (foundText != null) foundText.text = $"{data.foundCount} / {data.totalCount}";
-        if (wrongText != null) wrongText.text = $"{data.wrongCount}";
-        if (rankText != null) rankText.text = data.success ? $"{data.rank}위 <size=50%>/ {data.playerCount}명</size>" : "<size=60%>기록 없음</size>";
+        if (foundText != null) foundText.text = $"{data.foundCount}개";
+        if (wrongText != null) wrongText.text = $"{data.wrongCount}개";
 
-        SetRows(data.top, data.mine);
+        SetBoard(data);
+        SetRows(data.top);
+
+        if (mineRow != null)
+        {
+            mineRow.gameObject.SetActive(data.mine != null);
+            if (data.mine != null) mineRow.Set(data.rank, data.mine);
+        }
     }
 
-    private void SetRows(List<RankRecord> top, RankRecord mine)
+    private void SetBoard(ResultData data)
+    {
+        if (board == null) return;
+        board.Build(data.gridSize);
+        board.ResetCells();
+
+        foreach (var p in data.wrong) board.GetCell(p.x, p.y)?.ShowWrong(true);
+        foreach (var p in data.missed) board.GetCell(p.x, p.y)?.ShowReveal();
+        foreach (var p in data.found) board.GetCell(p.x, p.y)?.ShowFound(true);
+    }
+
+    private void SetRows(List<RankRecord> top)
     {
         if (rowPrefab == null || rowRoot == null) return;
 
@@ -77,14 +94,17 @@ public class ResultPanel : PanelBase
         {
             bool on = i < count;
             rows[i].gameObject.SetActive(on);
-            if (on) rows[i].Set(RankOf(top, i), top[i], top[i] == mine);
+            if (!on) continue;
+
+            int rank = RankOf(top, i);
+            rows[i].Set(rank, top[i], rank == 1);
         }
     }
 
-    // 같은 시간은 같은 순위
+    // 찾은 개수와 시간이 같으면 같은 순위
     private static int RankOf(List<RankRecord> list, int index)
     {
-        while (index > 0 && list[index - 1].seconds == list[index].seconds) index--;
+        while (index > 0 && RankingStore.Score(list[index - 1], list[index]) == 0) index--;
         return index + 1;
     }
 }

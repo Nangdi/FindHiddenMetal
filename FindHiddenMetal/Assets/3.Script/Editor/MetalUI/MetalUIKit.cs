@@ -22,11 +22,13 @@ public static class MetalUIKit
 
     public const string StaticLayerName = "StaticLayer";
 
-    private const string BoldFontPath = "Assets/10.Font/defaultFont/NotoSansKR-Bold SDF.asset";
-    private const string MediumFontPath = "Assets/10.Font/defaultFont/NotoSansKR-Medium SDF.asset";
+    // 디자인(PSD) 글꼴 Paperlogy. 숫자 등 동적 글자만 쓰므로 Dynamic 폰트 에셋이다.
+    private const string MediumFontPath = "Assets/10.Font/Paperlogy/Paperlogy-5Medium SDF.asset";
+    private const string BoldFontPath = "Assets/10.Font/Paperlogy/Paperlogy-7Bold SDF.asset";
+    private const string ExtraBoldFontPath = "Assets/10.Font/Paperlogy/Paperlogy-8ExtraBold SDF.asset";
 
     // 패널 이름 (Panel_xxx 프리팹, Static_xxx 이미지, Guide_xxx 이미지에 같이 쓰인다)
-    public static readonly string[] PanelNames = { "Idle", "Guide", "Play", "Result", "Ready" };
+    public static readonly string[] PanelNames = { "Idle", "Guide", "Countdown", "Play", "Result", "Ready" };
 
     public static string StaticSpritePath(string panel) => $"{StaticDir}/Static_{panel}.png";
     public static string GuidePath(string panel) => $"{GuideDir}/Guide_{panel}.png";
@@ -38,49 +40,55 @@ public static class MetalUIKit
 
     #region 화면 규격과 색
 
-    // 14형 터치모니터
-    public const int ScreenWidth = 1920;
-    public const int ScreenHeight = 1200;
+    // 세로형 터치모니터 (디자인 PSD 1200 x 1920)
+    public const int ScreenWidth = 1200;
+    public const int ScreenHeight = 1920;
     public static readonly Vector2 ReferenceResolution = new Vector2(ScreenWidth, ScreenHeight);
 
-    public static readonly Color BgColor = new Color32(14, 20, 34, 255);
-    public static readonly Color CardColor = new Color32(30, 40, 62, 255);
-    public static readonly Color SoftBoxColor = new Color32(255, 255, 255, 18);
-    public static readonly Color AccentColor = new Color32(228, 44, 52, 255);
-    public static readonly Color TextColor = Color.white;
-    public static readonly Color SubTextColor = new Color32(170, 182, 205, 255);
-    public static readonly Color DarkTextColor = new Color32(20, 24, 40, 255);
+    // 디자인 색 (PSD 글자 색)
+    public static readonly Color TextColor = new Color32(52, 55, 90, 255);       // 남색 기본 글자
+    public static readonly Color AccentColor = new Color32(250, 114, 85, 255);   // 주황 강조 (1위, 오답 수)
+    public static readonly Color GreenColor = new Color32(0, 190, 124, 255);     // 선택 수, 찾은 금속
+    public static readonly Color LightTextColor = Color.white;                   // 진한 배경 위 글자
+    public static readonly Color CountdownColor = new Color32(247, 43, 0, 255);
+    public static readonly Color DebugColor = new Color32(255, 0, 255, 255);     // 개발자용 정답 위치
+    public static readonly Color PlaceholderColor = new Color32(255, 0, 200, 255); // 디자인 PNG가 없을 때 임시 이미지
 
-    // 격자 칸과 마크 (흰 스프라이트에 코드/프리팹이 칠하는 색)
-    public static readonly Color CellColor = new Color32(52, 64, 90, 255);
-    public static readonly Color FoundColor = new Color32(64, 200, 112, 255);
-    public static readonly Color RevealColor = new Color32(255, 196, 40, 255);
-    public static readonly Color WrongColor = AccentColor;
-    public static readonly Color DebugColor = new Color32(255, 0, 255, 255); // 개발자용 정답 위치
-    public static readonly Color RankRowColor = new Color(1f, 1f, 1f, 0.06f);
+    // 격자 영역 (정적 레이어의 격자 바깥 선까지). 칸 크기는 GridBoard가 gridSize로 나눠 정한다.
+    public static readonly Vector2 PlayGridCenter = new Vector2(3, 101);
+    public static readonly Vector2 PlayGridSize = new Vector2(1120, 1082);
+    public static readonly Vector2 ResultGridCenter = new Vector2(-4, 404);
+    public static readonly Vector2 ResultGridSize = new Vector2(800, 784);
+    public const int GridLine = 2; // 격자 선 두께 (GridLayoutGroup padding/spacing)
 
-    // 격자 규격 (16x16). gridSize를 바꾸면 Static_Play.png의 열/행 표기도 다시 만들어야 한다.
-    public const int GridCount = 16;
-    public const float CellSize = 62f;
-    public const float CellSpacing = 2f;
-    public static float GridPixelSize => GridCount * CellSize + (GridCount - 1) * CellSpacing;
-    public static readonly Vector2 GridCenter = new Vector2(-350, -40);
+    // 부품 PNG 크기 (Docs/Design/export_psd.py가 PSD에서 뽑는다. 없으면 이 크기로 임시 이미지를 만든다)
+    public static readonly (string name, int width, int height)[] PartSizes =
+    {
+        ("Button_Start", 1030, 230),
+        ("Button_Confirm", 1080, 190),
+        ("Button_Submit", 380, 170),
+        ("Button_Submit_Off", 380, 170),
+        ("Button_Home", 380, 170),
+        ("Cell_Select", 92, 88),
+        ("Mark_Match", 65, 63),
+        ("Mark_Correct", 65, 63),
+        ("Mark_Wrong", 65, 63),
+        ("RankRow_Mine", 1050, 90),
+        ("Badge_MyRank", 130, 50),
+        ("Dot", 64, 64),
+    };
 
     #endregion
 
     #region 리소스
 
-    private static TMP_FontAsset boldFont;
     private static TMP_FontAsset mediumFont;
-    private static Sprite builtinRound;
+    private static TMP_FontAsset boldFont;
+    private static TMP_FontAsset extraBoldFont;
 
-    public static TMP_FontAsset BoldFont => boldFont != null ? boldFont : boldFont = LoadFont(BoldFontPath);
     public static TMP_FontAsset MediumFont => mediumFont != null ? mediumFont : mediumFont = LoadFont(MediumFontPath);
-
-    // 정적 레이어 렌더링용 둥근 박스 (유니티 기본 UISprite)
-    public static Sprite BuiltinRound => builtinRound != null
-        ? builtinRound
-        : builtinRound = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+    public static TMP_FontAsset BoldFont => boldFont != null ? boldFont : boldFont = LoadFont(BoldFontPath);
+    public static TMP_FontAsset ExtraBoldFont => extraBoldFont != null ? extraBoldFont : extraBoldFont = LoadFont(ExtraBoldFontPath);
 
     private static TMP_FontAsset LoadFont(string path)
     {
@@ -160,23 +168,6 @@ public static class MetalUIKit
         return image;
     }
 
-    // 정적 레이어 렌더링용 둥근 박스 (기본 UISprite의 둥글기를 화면 규격에 맞게 키움)
-    public static Image AddRoundBox(RectTransform rt, Color color)
-    {
-        Image image = AddImage(rt, color);
-        image.sprite = BuiltinRound;
-        image.type = Image.Type.Sliced;
-        image.pixelsPerUnitMultiplier = 0.4f;
-        return image;
-    }
-
-    public static RectTransform CreateRoundBox(RectTransform parent, string name, Vector2 pos, Vector2 size, Color color)
-    {
-        RectTransform box = Place(CreateRect(name, parent), pos, size);
-        AddRoundBox(box, color);
-        return box;
-    }
-
     public static TextMeshProUGUI AddText(RectTransform rt, string text, float fontSize, Color color, bool bold = false,
         TextAlignmentOptions alignment = TextAlignmentOptions.Center)
     {
@@ -195,12 +186,6 @@ public static class MetalUIKit
         float fontSize, Color color, bool bold = false, TextAlignmentOptions alignment = TextAlignmentOptions.Center)
     {
         return AddText(Place(CreateRect(name, parent), pos, size), text, fontSize, color, bold, alignment);
-    }
-
-    // 부모 영역을 가득 채우는 텍스트
-    public static TextMeshProUGUI FillText(RectTransform parent, string name, string text, float fontSize, Color color, bool bold = false)
-    {
-        return AddText(Stretch(CreateRect(name, parent), Vector2.zero, Vector2.one, 10), text, fontSize, color, bold);
     }
 
     #endregion
