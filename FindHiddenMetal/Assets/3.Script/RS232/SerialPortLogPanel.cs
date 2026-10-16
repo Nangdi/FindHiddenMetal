@@ -41,6 +41,8 @@ public class SerialPortLogPanel : MonoBehaviour
 
     private void Start()
     {
+        HotkeyHelp.Register(toggleKey, "통신(RS232) 디버그 패널 열기/닫기");
+
         if (clearButton != null) clearButton.onClick.AddListener(ClearLog);
         TrySubscribe();
         RefreshAllStatus();

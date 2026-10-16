@@ -10,9 +10,10 @@ using UnityEngine;
 // - 제한 시간이 끝나면 그때까지 고른 칸으로 판정한다(없으면 0개). 두 경우 모두 랭킹에 기록한다.
 // - 체험 중 HOME을 누르면 기록 없이 원판을 돌리고 대기 화면으로 간다.
 // - 결과 화면을 닫으면 LED 소등 + 원판 90도 회전, 완료 신호를 받은 뒤 다음 체험을 받는다.
+// - 대기 화면에서 F3: 정답 편집 모드(Edit). 지금 원판 배치를 0단계 정답으로 입력하고 회전 방향을 정한다.
 public class FlowController : MonoBehaviour
 {
-    public enum State { Idle, Guide, Countdown, Play, Result, Ready }
+    public enum State { Idle, Guide, Countdown, Play, Result, Ready, Edit }
 
     [Header("패널")]
     [SerializeField] private IdlePanel idlePanel;
@@ -21,6 +22,7 @@ public class FlowController : MonoBehaviour
     [SerializeField] private PlayPanel playPanel;
     [SerializeField] private ResultPanel resultPanel;
     [SerializeField] private ReadyPanel readyPanel;
+    [SerializeField] private EditPanel editPanel;
 
     [Header("연출")]
     [Tooltip("시간이 끝난 뒤 결과 화면까지 기다리는 시간(초). 정답 확인을 누르면 바로 넘어간다")]
@@ -29,6 +31,8 @@ public class FlowController : MonoBehaviour
     [Header("개발자용")]
     [Tooltip("체험 진행 중 정답 위치 표시를 켜고 끄는 키. 켜 둔 상태는 다음 판에도 유지된다.")]
     [SerializeField] private KeyCode debugAnswerKey = KeyCode.F2;
+    [Tooltip("대기 화면에서 정답 편집 모드를 여는 키. 편집 중에 누르면 저장하지 않고 나간다.")]
+    [SerializeField] private KeyCode editKey = KeyCode.F3;
 
     public State Current { get; private set; } = State.Idle;
 
@@ -53,6 +57,14 @@ public class FlowController : MonoBehaviour
         if (playPanel != null) playPanel.OnSubmit += Submit;
         if (playPanel != null) playPanel.OnHome += AbortPlay;
         if (resultPanel != null) resultPanel.OnClose += CloseResult;
+        if (editPanel != null)
+        {
+            editPanel.OnRotateRequest += RotateForEdit;
+            editPanel.OnSave += SaveEdit;
+            editPanel.OnCancel += ExitEdit;
+        }
+        HotkeyHelp.Register(debugAnswerKey, "체험 중 정답 위치 표시 켜기/끄기 (개발자용)");
+        HotkeyHelp.Register(editKey, "대기 화면에서 정답 편집 모드 열기 (편집 중에 누르면 저장하지 않고 나가기)");
         if (GameTimer.Instance != null) GameTimer.Instance.OnTimeOver += OnTimeOver;
         if (Device != null) Device.OnRotationDone += OnRotationDone;
         else Debug.LogWarning("MetalDeviceLink 없음 - 원판 회전 없이 진행");
@@ -82,6 +94,8 @@ public class FlowController : MonoBehaviour
             ApplyDebugAnswers();
         }
 
+        if (Input.GetKeyDown(editKey)) ToggleEdit();
+
         if (Current == State.Play && !finishing && GameTimer.Instance != null)
         {
             var timer = GameTimer.Instance;
@@ -102,6 +116,7 @@ public class FlowController : MonoBehaviour
         SetPanel(playPanel, next == State.Play);
         SetPanel(resultPanel, next == State.Result);
         SetPanel(readyPanel, next == State.Ready);
+        SetPanel(editPanel, next == State.Edit);
 
         switch (next)
         {
@@ -117,6 +132,9 @@ public class FlowController : MonoBehaviour
                 break;
             case State.Result:
                 resultShownTime = Time.unscaledTime;
+                break;
+            case State.Edit:
+                BeginEdit();
                 break;
         }
     }
@@ -216,6 +234,12 @@ public class FlowController : MonoBehaviour
 
     private void OnRotationDone(int index)
     {
+        if (Current == State.Edit)
+        {
+            Debug.Log($"[정답 편집] 원판 회전 완료 - {index}단계");
+            if (editPanel != null) editPanel.RotationDone();
+            return;
+        }
         if (Current != State.Ready) return;
         Debug.Log($"원판 회전 완료 - {index}단계");
         GoTo(replayAfterReady ? State.Countdown : State.Idle);
@@ -254,6 +278,55 @@ public class FlowController : MonoBehaviour
         if (GameManager.Instance != null) GameManager.Instance.EndGame();
         ResetDevice(false);
     }
+
+    #region 정답 편집 모드
+
+    private void ToggleEdit()
+    {
+        if (Current == State.Idle) GoTo(State.Edit);
+        else if (Current == State.Edit) ExitEdit();
+        else Debug.Log("[정답 편집] 대기 화면에서만 열 수 있습니다.");
+    }
+
+    // 장치 LED를 켜서 실제 금속 위치를 보며 입력할 수 있게 한다.
+    private void BeginEdit()
+    {
+        Debug.Log($"[정답 편집] 시작 - 현재 원판 {(Device != null ? Device.RotationIndex : 0)}단계 배치를 새 0단계로 입력");
+        if (editPanel != null) editPanel.Begin(Config.gridSize, Config.baseTargets, Config.baseTargets.Count, Config.rotateClockwise);
+        if (Device != null) Device.LedOn();
+    }
+
+    private void RotateForEdit()
+    {
+        if (Current != State.Edit) return;
+        if (Device != null) Device.Rotate();
+        else if (editPanel != null) editPanel.RotationDone();
+    }
+
+    // 입력한 배치 = 편집을 시작할 때의 원판 위치. 그 뒤 rotations번 돌렸으므로 지금 단계는 rotations.
+    private void SaveEdit(List<GridPos> targets, bool clockwise, int rotations)
+    {
+        if (Current != State.Edit || targets == null || targets.Count == 0) return;
+
+        Config.baseTargets = targets;
+        Config.rotateClockwise = clockwise;
+        JsonManager.instance.SaveGameDynamicData();
+        if (Device != null) Device.SetRotationIndex(rotations);
+
+        var labels = new StringBuilder();
+        foreach (var p in targets) labels.Append(TargetLayout.ToLabel(p.x, p.y)).Append(' ');
+        Debug.Log($"[정답 편집] 저장 - 0단계 정답: {labels}/ {(clockwise ? "시계" : "반시계")} 방향 / 현재 원판 {rotations % TargetLayout.RotationSteps}단계");
+        ExitEdit();
+    }
+
+    private void ExitEdit()
+    {
+        if (Current != State.Edit || (editPanel != null && editPanel.IsRotating)) return;
+        if (Device != null) Device.LedOff();
+        GoTo(State.Idle);
+    }
+
+    #endregion
 
     // 개발자용 정답 위치 표시 (진행 화면에서만)
     private void ApplyDebugAnswers()

@@ -27,6 +27,7 @@ python Docs/Design/export_psd.py "<PSD 경로>"
 | Static_Play.png | 탐색/위치 입력 | 04 (격자+칸 번호, 시간 원, "/ 8" 박스 포함) |
 | Static_Result.png | 결과 | 05 (빈 격자, 범례, 남색 박스 라벨, 랭킹 박스+아이콘) |
 | Static_Ready.png | 다음 체험 준비 중 (원판 회전 대기) | 03 배경 + 문구 |
+| Static_Edit.png | 정답 편집 모드 (운영자용, F3) | 04 배경 + 격자만 (글자·버튼은 Unity에서 생성) |
 
 **_Guide/Guide_xxx.png** 의 분홍 박스 자리는 동적 요소(버튼, 숫자, 격자 칸 마크, 랭킹 글자)가 올라가는 곳이니 비워 두세요.
 

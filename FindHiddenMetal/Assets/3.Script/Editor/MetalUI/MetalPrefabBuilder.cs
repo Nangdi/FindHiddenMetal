@@ -13,7 +13,7 @@ using static MetalUIKit;
 //
 // 구조 (세로 1200x1920, 배치 좌표는 디자인 PSD 기준 / Docs/Design/psd_layout.json)
 //  Canvas_FindHiddenMetal.prefab
-//   └ Panel_xxx.prefab (Idle, Guide, Countdown, Play, Result, Ready)
+//   └ Panel_xxx.prefab (Idle, Guide, Countdown, Play, Result, Ready, Edit)
 //      ├ StaticLayer  : 정적 PNG 한 장 (4.Sprite/Static/Static_xxx.png)
 //      └ 동적 요소    : 버튼, 숫자, 격자 칸(GridCell/ResultCell 런타임 생성), 랭킹 줄(RankRow 런타임 생성)
 //
@@ -53,6 +53,7 @@ public static class MetalPrefabBuilder
             { "Play", CreatePlayPanel },
             { "Result", CreateResultPanel },
             { "Ready", CreateReadyPanel },
+            { "Edit", CreateEditPanel },
         };
         var panels = new List<GameObject>();
         foreach (string panel in PanelNames)
@@ -355,6 +356,82 @@ public static class MetalPrefabBuilder
         return panel.gameObject;
     }
 
+    // 운영자용 정답 편집 화면. PSD 시안이 없어 정적 레이어는 진행 화면의 배경+격자만 쓰고(Static_Edit),
+    // 글자와 버튼은 Kit 색과 Unity 기본 둥근 스프라이트로 만든다.
+    private static GameObject CreateEditPanel()
+    {
+        RectTransform panel = CreatePanelRoot("Edit");
+
+        CreateText(panel, "TitleText", "정답 편집 모드", new Vector2(0, 860), new Vector2(1100, 80), 56, TextColor, true);
+        TMP_Text status = CreateText(panel, "StatusText", "지금 원판에서 금속이 있는 칸 8곳을 터치하세요.\n이 배치가 회전 0단계 정답이 됩니다.",
+            new Vector2(0, 735), new Vector2(1120, 120), 34, TextColor);
+
+        GridBoard board = CreateBoard(panel, "GridRoot", PlayGridCenter, PlayGridSize, cellPrefab);
+
+        // 선택 수 + 회전 방향
+        TMP_Text count = CreateText(panel, "CountText", "선택 8 / 8", new Vector2(-330, -515), new Vector2(420, 90), 46, TextColor, true,
+            TextAlignmentOptions.MidlineLeft);
+        CreateText(panel, "DirectionLabel", "회전 방향", new Vector2(-40, -515), new Vector2(180, 90), 32, TextColor, false,
+            TextAlignmentOptions.MidlineRight);
+        Button cw = CreateBoxButton(panel, "ClockwiseButton", "시계", new Vector2(160, -515), new Vector2(190, 90), 36, TextColor,
+            out GameObject cwHighlight);
+        Button ccw = CreateBoxButton(panel, "CounterClockwiseButton", "반시계", new Vector2(370, -515), new Vector2(190, 90), 36,
+            TextColor, out GameObject ccwHighlight);
+
+        // 회전 테스트
+        Button rotate = CreateBoxButton(panel, "RotateButton", "원판 회전 테스트", new Vector2(-300, -650), new Vector2(480, 110), 40,
+            TextColor, out _);
+        TMP_Text rotateInfo = CreateText(panel, "RotateInfoText", "원판을 90° 돌려 예상 위치를 확인합니다.", new Vector2(260, -650),
+            new Vector2(600, 110), 30, TextColor, false, TextAlignmentOptions.MidlineLeft);
+
+        Button cancel = CreateBoxButton(panel, "CancelButton", "취소", new Vector2(-280, -815), new Vector2(460, 140), 48, TextColor, out _);
+        Button save = CreateBoxButton(panel, "SaveButton", "저장", new Vector2(280, -815), new Vector2(460, 140), 48, AccentColor, out _);
+
+        var view = panel.gameObject.AddComponent<EditPanel>();
+        Wire(view,
+            ("board", board),
+            ("statusText", status),
+            ("countText", count),
+            ("rotateInfoText", rotateInfo),
+            ("clockwiseButton", cw),
+            ("clockwiseHighlight", cwHighlight),
+            ("counterClockwiseButton", ccw),
+            ("counterClockwiseHighlight", ccwHighlight),
+            ("rotateButton", rotate),
+            ("saveButton", save),
+            ("cancelButton", cancel));
+        var so = new SerializedObject(view);
+        so.FindProperty("accentColor").colorValue = AccentColor;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        return panel.gameObject;
+    }
+
+    // 글자 버튼 (운영자 화면용). Highlight는 강조색으로 덮어 고른 상태를 보여 준다 (방향 버튼).
+    private static Button CreateBoxButton(RectTransform parent, string name, string label, Vector2 pos, Vector2 size, float fontSize,
+        Color color, out GameObject highlight)
+    {
+        Sprite round = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        RectTransform rt = Place(CreateRect(name, parent), pos, size);
+        Image image = AddSprite(rt, round, color);
+        image.type = Image.Type.Sliced;
+        image.raycastTarget = true;
+
+        RectTransform hl = StretchFull(CreateRect("Highlight", rt));
+        AddSprite(hl, round, AccentColor).type = Image.Type.Sliced;
+        hl.gameObject.SetActive(false);
+        highlight = hl.gameObject;
+
+        TextMeshProUGUI text = AddText(StretchFull(CreateRect("Label", rt)), label, fontSize, LightTextColor, true);
+        text.enableWordWrapping = false;
+
+        var button = rt.gameObject.AddComponent<Button>();
+        button.targetGraphic = image;
+        var colors = button.colors;
+        colors.disabledColor = DisabledTint;
+        button.colors = colors;
+        return button;
+    }
+
     #endregion
 
     #region 캔버스와 씬
@@ -411,7 +488,8 @@ public static class MetalPrefabBuilder
             ("countdownPanel", canvas.GetComponentInChildren<CountdownPanel>(true)),
             ("playPanel", canvas.GetComponentInChildren<PlayPanel>(true)),
             ("resultPanel", canvas.GetComponentInChildren<ResultPanel>(true)),
-            ("readyPanel", canvas.GetComponentInChildren<ReadyPanel>(true)));
+            ("readyPanel", canvas.GetComponentInChildren<ReadyPanel>(true)),
+            ("editPanel", canvas.GetComponentInChildren<EditPanel>(true)));
 
         SetupDeviceLink();
 

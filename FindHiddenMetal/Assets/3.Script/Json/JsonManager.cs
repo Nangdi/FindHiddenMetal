@@ -27,7 +27,7 @@ public class GridPos
 }
 
 // 프로젝트별로 실행 중에 바뀌는 데이터를 담는 곳 (Setting.json).
-// 숨은 금속 찾기 운영값. 파일을 직접 열어 고친다.
+// 숨은 금속 찾기 운영값. 파일을 직접 열어 고친다. 정답 배치와 회전 방향은 정답 편집 모드(F3)에서도 바꾼다.
 [Serializable]
 public class GameDynamicData
 {
@@ -51,7 +51,7 @@ public class GameDynamicData
     public int rankingShowCount = 5;
     // 금속탐지 장치 컨트롤러 id (port.json 의 controllerId)
     public int deviceControllerId = 1;
-    // 회전 0단계일 때 탐지목표물 8개의 격자 좌표. 실제 장치 배치에 맞춰 수정.
+    // 회전 0단계일 때 탐지목표물 8개의 격자 좌표. 정답 편집 모드(F3)에서 실제 원판을 보고 입력한다.
     public List<GridPos> baseTargets = new List<GridPos>
     {
         new GridPos(2, 2), new GridPos(5, 1), new GridPos(8, 2), new GridPos(10, 5),
@@ -179,6 +179,12 @@ public class JsonManager : MonoBehaviour
     public void SaveGameSettingData()
     {
         SaveData(gameSettingData, gameDataPath);
+    }
+
+    // 현재 운영값(정답 배치, 회전 방향 등)을 Setting.json 파일에 저장합니다.
+    public void SaveGameDynamicData()
+    {
+        SaveData(gameDynamicData, gameDynamicDataPath);
     }
 
     // 지정한 경로에 JSON 파일을 생성하거나 덮어씁니다.

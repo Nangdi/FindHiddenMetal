@@ -28,7 +28,7 @@ public static class MetalUIKit
     private const string ExtraBoldFontPath = "Assets/10.Font/Paperlogy/Paperlogy-8ExtraBold SDF.asset";
 
     // 패널 이름 (Panel_xxx 프리팹, Static_xxx 이미지, Guide_xxx 이미지에 같이 쓰인다)
-    public static readonly string[] PanelNames = { "Idle", "Guide", "Countdown", "Play", "Result", "Ready" };
+    public static readonly string[] PanelNames = { "Idle", "Guide", "Countdown", "Play", "Result", "Ready", "Edit" };
 
     public static string StaticSpritePath(string panel) => $"{StaticDir}/Static_{panel}.png";
     public static string GuidePath(string panel) => $"{GuideDir}/Guide_{panel}.png";
@@ -51,6 +51,7 @@ public static class MetalUIKit
     public static readonly Color GreenColor = new Color32(0, 190, 124, 255);     // 선택 수, 찾은 금속
     public static readonly Color LightTextColor = Color.white;                   // 진한 배경 위 글자
     public static readonly Color CountdownColor = new Color32(247, 43, 0, 255);
+    public static readonly Color DisabledTint = new Color(0.6f, 0.6f, 0.6f, 0.5f); // 누를 수 없는 버튼 색 곱 (운영자 화면)
     public static readonly Color DebugColor = new Color32(255, 0, 255, 255);     // 개발자용 정답 위치
     public static readonly Color PlaceholderColor = new Color32(255, 0, 200, 255); // 디자인 PNG가 없을 때 임시 이미지
 

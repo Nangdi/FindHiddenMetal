@@ -142,7 +142,8 @@ public class MetalDeviceLink : SerialPortManager
         OnRotationDone?.Invoke(state.rotationIndex);
     }
 
-    private void SetRotationIndex(int index)
+    // 정답 편집 모드에서 지금 원판 위치를 기준 단계로 다시 정할 때도 쓴다.
+    public void SetRotationIndex(int index)
     {
         state.rotationIndex = Normalize(index);
         try { JsonManager.SaveData(state, statePath); }

@@ -54,6 +54,8 @@ public class SettingsPanelUI : MonoBehaviour
 
     private void Start()
     {
+        HotkeyHelp.Register(toggleKey, "설정창 열기/닫기");
+
         if (alwaysOnTop == null)
             alwaysOnTop = FindObjectOfType<UnityAlwaysOnTop>();
 

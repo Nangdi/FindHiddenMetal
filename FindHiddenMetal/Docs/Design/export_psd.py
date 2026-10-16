@@ -1,5 +1,6 @@
 # 디자이너 PSD(02-숨은 금속 찾기-*.psd)에서 Unity용 PNG를 뽑는다.
 #  - Assets/4.Sprite/Static/Static_<패널>.png : 화면별 정적 레이어 (1200x1920, 동적 요소 레이어는 숨기고 합성)
+#                                                Ready(회전 대기), Edit(정답 편집)는 시안이 없어 다른 화면 레이어로 만든다
 #  - Assets/4.Sprite/Parts/<부품>.png          : 버튼, 마크 등 동적 요소 (레이어만 합성 후 투명 영역 잘라냄)
 #  - Docs/Design/psd_layout.json               : 부품별 캔버스 중심 기준 좌표/크기 (프리팹 배치 참고용)
 # 같은 파일명으로 덮어쓰므로 Unity 연결(GUID)은 유지된다.
@@ -104,6 +105,11 @@ def export_static(psd, gs):
     draw_center(draw, READY_TEXT[0], 640, font("Paperlogy-7Bold.ttf", 72), NAVY)
     draw_center(draw, READY_TEXT[1], 760, font("Paperlogy-4Regular.ttf", 52), NAVY, spacing=24)
     save(img.convert("RGB"), os.path.join(STATIC_DIR, "Static_Ready.png"))
+
+    # 정답 편집 화면(운영자용)도 시안이 없어 진행 화면의 배경과 격자만 쓴다. 글자와 버튼은 Unity에서 만든다.
+    group = gs["04 탐색/위치 입력 화면"]
+    img = solo(psd, group, [find(group, "배경"), find(group, "영역")])
+    save(img.convert("RGB"), os.path.join(STATIC_DIR, "Static_Edit.png"))
 
 
 def export_parts(psd, gs):
