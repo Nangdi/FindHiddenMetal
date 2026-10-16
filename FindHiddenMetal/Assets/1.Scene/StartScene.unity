@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -746,7 +746,7 @@ MonoBehaviour:
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 1200, y: 1920}
-  m_ScreenMatchMode: 0
+  m_ScreenMatchMode: 1
   m_MatchWidthOrHeight: 0.5
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
@@ -965,7 +965,7 @@ PrefabInstance:
   m_SourcePrefab: {fileID: 100100000, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
 --- !u!114 &355241090 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8562546999160890392, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 4936384491195908715, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -976,7 +976,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
 --- !u!114 &355241091 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 5047506446905978515, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 6406748630918434616, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -987,7 +987,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
 --- !u!114 &355241092 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4706292340573113537, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 1733806689564742253, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -998,7 +998,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
 --- !u!114 &355241093 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7572163350857271795, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 7987897744704739243, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -1009,7 +1009,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
 --- !u!114 &355241094 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 8170994247340920771, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 7894181577091517172, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -1020,7 +1020,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
 --- !u!114 &355241095 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 1007849209979164470, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 5903646291449198225, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -1031,7 +1031,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
 --- !u!114 &355241096 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7264516249282311886, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
+  m_CorrespondingSourceObject: {fileID: 8053570312876199652, guid: 0c78f733854f75e40992cbfe2a22216d, type: 3}
   m_PrefabInstance: {fileID: 355241089}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
@@ -3729,7 +3729,6 @@ MonoBehaviour:
     rotateClockwise: 1
     rankingKeepDays: 3
     rankingShowCount: 5
-    deviceControllerId: 1
     baseTargets:
     - x: 2
       y: 3
@@ -3795,8 +3794,8 @@ Camera:
   m_GameObject: {fileID: 963194225}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0

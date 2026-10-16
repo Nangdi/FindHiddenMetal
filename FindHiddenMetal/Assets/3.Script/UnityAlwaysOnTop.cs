@@ -44,15 +44,7 @@ public class UnityAlwaysOnTop : MonoBehaviour
             Debug.Log("에디터에서는 AlwaysOnTop 설정 생략");
             return;
         }
-        // 멀티 디스플레이 활성화
-        if (Display.displays.Length > 1)
-        {
-            Display.displays[1].Activate();
-        }
-        if (Display.displays.Length > 2)
-        {
-            Display.displays[2].Activate();
-        }
+        ActivateUsedDisplays();
 
         var jm = JsonManager.instance;
 
@@ -61,6 +53,25 @@ public class UnityAlwaysOnTop : MonoBehaviour
         // FullScreenWindow 전환/창 재생성 과정에서 topmost가 풀릴 수 있어 잠시 뒤 재적용
         if (onTop) StartCoroutine(ReapplyAlwaysOnTop());
         ApplyMouseCursor(jm == null || jm.gameSettingData.showMouseCursor);
+    }
+
+    // 멀티 디스플레이: 카메라나 오버레이 캔버스가 실제로 그리는 디스플레이만 켠다.
+    // 그리는 것이 없는 디스플레이를 켜면 그 모니터 전체가 검은 화면으로 덮인다(듀얼 모니터에서 한쪽이 검게 되는 원인).
+    private static void ActivateUsedDisplays()
+    {
+        var used = new HashSet<int>();
+        foreach (var cam in FindObjectsOfType<Camera>())
+            if (cam.enabled) used.Add(cam.targetDisplay);
+        foreach (var canvas in FindObjectsOfType<Canvas>())
+            if (canvas.isRootCanvas && canvas.renderMode == RenderMode.ScreenSpaceOverlay) used.Add(canvas.targetDisplay);
+
+        for (int i = 1; i < Display.displays.Length; i++)
+        {
+            if (!used.Contains(i)) continue;
+            Display.displays[i].Activate();
+            Debug.Log($"디스플레이 {i + 1} 활성화");
+        }
+        Debug.Log($"연결된 디스플레이 {Display.displays.Length}개, 사용 디스플레이: {string.Join(", ", used)} (0 = 주 모니터)");
     }
 
     /// <summary>

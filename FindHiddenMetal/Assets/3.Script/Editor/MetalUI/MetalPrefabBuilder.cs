@@ -12,10 +12,11 @@ using static MetalUIKit;
 // 메뉴: Tools > 숨은 금속 찾기 > 1. 프리팹 생성 및 씬 적용
 //
 // 구조 (세로 1200x1920, 배치 좌표는 디자인 PSD 기준 / Docs/Design/psd_layout.json)
-//  Canvas_FindHiddenMetal.prefab
-//   └ Panel_xxx.prefab (Idle, Guide, Countdown, Play, Result, Ready, Edit)
-//      ├ StaticLayer  : 정적 PNG 한 장 (4.Sprite/Static/Static_xxx.png)
-//      └ 동적 요소    : 버튼, 숫자, 격자 칸(GridCell/ResultCell 런타임 생성), 랭킹 줄(RankRow 런타임 생성)
+//  Canvas_FindHiddenMetal.prefab (CanvasScaler Expand: 어떤 해상도에서도 1200x1920 전체가 보임)
+//   └ Frame (1200x1920 고정)
+//      └ Panel_xxx.prefab (Idle, Guide, Countdown, Play, Result, Ready, Edit)
+//         ├ StaticLayer  : 정적 PNG 한 장 (4.Sprite/Static/Static_xxx.png)
+//         └ 동적 요소    : 버튼, 숫자, 격자 칸(GridCell/ResultCell 런타임 생성), 랭킹 줄(RankRow 런타임 생성)
 //
 // 이미 있는 프리팹은 덮어쓰지 않는다. 직접 수정한 프리팹을 지키기 위해서다.
 // 프리팹을 처음 상태로 되돌리고 싶으면 해당 .prefab 파일을 지운 뒤 다시 실행한다.
@@ -23,6 +24,7 @@ public static class MetalPrefabBuilder
 {
     private const string CanvasName = "Canvas_FindHiddenMetal";
     private const string SystemName = "MetalSystem";
+    private const string FrameName = "Frame"; // 기준 해상도 크기의 화면 틀 (패널들의 부모)
 
     // 랭킹 줄 (결과 화면 랭킹 박스 폭, 줄 높이)
     private const float RankRowWidth = 1050f;
@@ -445,17 +447,21 @@ public static class MetalPrefabBuilder
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 0; // 설정창(SettingsCanvas)보다 아래
 
+        // 화면 비율이 기준(1200x1920 세로)과 달라도 화면 전체가 보이도록 Expand로 맞추고,
+        // 패널은 기준 크기의 Frame 안에 둔다. 남는 부분은 카메라 배경색(검정)으로 채워진다.
         var scaler = go.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = ReferenceResolution;
-        scaler.matchWidthOrHeight = 0.5f;
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
 
         go.AddComponent<GraphicRaycaster>();
+
+        RectTransform frame = Place(CreateRect(FrameName, go.transform), Vector2.zero, ReferenceResolution);
 
         // 편집하기 쉽도록 대기 화면만 켜 둔다. 실행 시에는 FlowController가 단계에 맞게 켜고 끈다.
         for (int i = 0; i < panels.Count; i++)
         {
-            var panel = (GameObject)PrefabUtility.InstantiatePrefab(panels[i], go.transform);
+            var panel = (GameObject)PrefabUtility.InstantiatePrefab(panels[i], frame);
             panel.SetActive(i == 0);
         }
         return go;
