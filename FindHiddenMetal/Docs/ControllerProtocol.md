@@ -8,7 +8,7 @@ PC(Unity, 터치모니터 SW) ↔ 금속탐지 장치 컨트롤러(회전 원판
 |---|---|
 | 방식 | RS232 (USB-Serial 가능) |
 | 속도 | 19200 bps, 8N1, 흐름 제어 없음 |
-| 포트 | `persistentDataPath/port.json` (첫 실행 때 `StreamingAssets/port.json`을 복사) — `controllerId`가 `Setting.json`의 `deviceControllerId`(기본 1)와 같은 항목, `enabled: true` |
+| 포트 | `persistentDataPath/port.json` (첫 실행 때 `StreamingAssets/port.json`을 복사) — `enabled: true`인 포트 전부. 컨트롤러 id는 구분하지 않음 (어느 포트로 들어온 메시지든 같게 처리, 명령은 열린 모든 포트로 송신) |
 | 문자 | ASCII, 대문자 |
 | 줄 끝 | PC → 컨트롤러: `\n` / 컨트롤러 → PC: `\n` 또는 `\r\n` |
 | 구분자 | 값이 있으면 `,` (공백 없음) |

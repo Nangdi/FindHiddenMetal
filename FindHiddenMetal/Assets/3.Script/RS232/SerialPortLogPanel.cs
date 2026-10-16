@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO.Ports;
+using System.Linq;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -7,6 +9,8 @@ using UnityEngine.UI;
 
 // 게임씬에 미리 만들어진 Canvas/UI 위에서 동작하는 로그 패널.
 // Inspector에서 텍스트/스크롤뷰/버튼을 직접 연결한다.
+// 포트 설정: 컨트롤러를 고르고 지금 PC에 있는 COM 포트를 고르면 port.json(persistent)에 저장하고 바로 다시 연다.
+// 재연결 버튼은 COM 목록을 새로 읽고 선택한 컨트롤러 포트를 다시 연다.
 public class SerialPortLogPanel : MonoBehaviour
 {
     [Header("연결 상태 텍스트 (인덱스 0~4 = Ctrl 1~5)")]
@@ -18,6 +22,22 @@ public class SerialPortLogPanel : MonoBehaviour
 
     [Header("버튼")]
     [SerializeField] private Button clearButton;
+
+    [Header("포트 설정 (비워두면 표시하지 않음)")]
+    [Tooltip("port.json 의 컨트롤러 목록. 비워두면 표시하지 않음")]
+    [SerializeField] private TMP_Dropdown controllerDropdown;
+    [Tooltip("'사용 안 함' + 지금 PC에 있는 COM 포트. 비워두면 표시하지 않음")]
+    [SerializeField] private TMP_Dropdown comDropdown;
+    [Tooltip("COM 목록 새로고침 + 선택한 컨트롤러 재연결. 비워두면 표시하지 않음")]
+    [SerializeField] private Button reconnectButton;
+    [Tooltip("패널을 열었을 때 처음 고를 컨트롤러 id")]
+    [SerializeField] private int defaultControllerId = 1;
+
+    [Header("수동 송신 (선택한 컨트롤러로 보냄, 비워두면 표시하지 않음)")]
+    [Tooltip("비워두면 표시하지 않음")]
+    [SerializeField] private TMP_InputField sendInput;
+    [Tooltip("비워두면 표시하지 않음")]
+    [SerializeField] private Button sendButton;
 
     [Header("토글 (ESC 키로 표시/숨김)")]
     [SerializeField] private GameObject togglePanel;
@@ -39,11 +59,22 @@ public class SerialPortLogPanel : MonoBehaviour
     private SerialPortManager manager;
     private bool subscribed;
 
+    private const string DisabledOption = "사용 안 함";
+    private const string MissingSuffix = " (연결 안 됨)";
+    private readonly List<int> controllerIds = new List<int>();
+    private readonly List<string> comOptions = new List<string>();
+
     private void Start()
     {
         HotkeyHelp.Register(toggleKey, "통신(RS232) 디버그 패널 열기/닫기");
 
         if (clearButton != null) clearButton.onClick.AddListener(ClearLog);
+        if (controllerDropdown != null) controllerDropdown.onValueChanged.AddListener(_ => RefreshComOptions());
+        if (comDropdown != null) comDropdown.onValueChanged.AddListener(ApplyCom);
+        if (reconnectButton != null) reconnectButton.onClick.AddListener(ReconnectSelected);
+        if (sendButton != null) sendButton.onClick.AddListener(SendManual);
+        if (sendInput != null) sendInput.onSubmit.AddListener(_ => SendManual());
+        BuildControllerOptions();
         TrySubscribe();
         RefreshAllStatus();
 
@@ -59,6 +90,8 @@ public class SerialPortLogPanel : MonoBehaviour
         if (Input.GetKeyDown(toggleKey) && togglePanel != null)
         {
             togglePanel.SetActive(!togglePanel.activeSelf);
+            // 열 때마다 COM 목록을 새로 읽는다 (USB-Serial을 꽂고 뺀 경우)
+            if (togglePanel.activeSelf) RefreshComOptions();
         }
     }
 
@@ -172,6 +205,124 @@ public class SerialPortLogPanel : MonoBehaviour
             }
         }
     }
+
+    #region 포트 설정
+
+    private int SelectedControllerId =>
+        controllerDropdown != null && controllerDropdown.value >= 0 && controllerDropdown.value < controllerIds.Count
+            ? controllerIds[controllerDropdown.value]
+            : defaultControllerId;
+
+    private void BuildControllerOptions()
+    {
+        controllerIds.Clear();
+        var ports = JsonManager.instance != null ? JsonManager.instance.portJson?.ports : null;
+        if (ports != null)
+            foreach (var cfg in ports)
+                if (!controllerIds.Contains(cfg.controllerId)) controllerIds.Add(cfg.controllerId);
+
+        if (controllerDropdown != null)
+        {
+            controllerDropdown.ClearOptions();
+            controllerDropdown.AddOptions(controllerIds.Select(id => $"Ctrl {id}").ToList());
+            int index = controllerIds.IndexOf(defaultControllerId);
+            controllerDropdown.SetValueWithoutNotify(Mathf.Max(0, index));
+        }
+        RefreshComOptions();
+    }
+
+    // "사용 안 함" + 지금 PC의 COM 포트. 저장된 포트가 목록에 없으면 "(연결 안 됨)"으로 붙여 현재 값을 보여 준다.
+    private void RefreshComOptions()
+    {
+        if (comDropdown == null) return;
+
+        comOptions.Clear();
+        comOptions.Add(DisabledOption);
+        try
+        {
+            comOptions.AddRange(SerialPort.GetPortNames().Distinct().OrderBy(n => n.Length).ThenBy(n => n));
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"COM 포트 목록을 읽지 못함: {ex.Message}");
+        }
+
+        var cfg = SerialPortManager.FindConfig(SelectedControllerId);
+        int selected = 0;
+        if (cfg != null && cfg.enabled)
+        {
+            selected = comOptions.IndexOf(cfg.com);
+            if (selected < 0)
+            {
+                comOptions.Add(cfg.com + MissingSuffix);
+                selected = comOptions.Count - 1;
+            }
+        }
+
+        comDropdown.ClearOptions();
+        comDropdown.AddOptions(comOptions);
+        comDropdown.SetValueWithoutNotify(selected);
+    }
+
+    // COM 포트를 고르면 port.json 에 저장하고 바로 다시 연다.
+    private void ApplyCom(int index)
+    {
+        int id = SelectedControllerId;
+        var cfg = SerialPortManager.FindConfig(id);
+        if (cfg == null || index < 0 || index >= comOptions.Count) return;
+
+        string option = comOptions[index];
+        if (option == DisabledOption)
+        {
+            cfg.enabled = false;
+        }
+        else
+        {
+            cfg.com = option.EndsWith(MissingSuffix) ? option.Substring(0, option.Length - MissingSuffix.Length) : option;
+            cfg.enabled = true;
+        }
+
+        if (JsonManager.instance != null) JsonManager.instance.SavePortJson();
+        AppendLog($"[Setting][Ctrl {id}] {(cfg.enabled ? cfg.com : DisabledOption)} 저장 - 재연결");
+        Reconnect(id);
+    }
+
+    private void ReconnectSelected()
+    {
+        RefreshComOptions();
+        int id = SelectedControllerId;
+        AppendLog($"[Setting][Ctrl {id}] 재연결");
+        Reconnect(id);
+    }
+
+    private void Reconnect(int controllerId)
+    {
+        if (manager == null) TrySubscribe();
+        if (manager == null)
+        {
+            AppendLog($"[Setting][Ctrl {controllerId}] SerialPortManager 없음 - 재연결 못 함");
+            return;
+        }
+        manager.Reconnect(controllerId);
+        RefreshAllStatus();
+    }
+
+    private void SendManual()
+    {
+        if (sendInput == null || string.IsNullOrWhiteSpace(sendInput.text)) return;
+        int id = SelectedControllerId;
+        string message = sendInput.text.Trim();
+
+        if (manager == null || !manager.IsControllerOpen(id))
+            AppendLog($"[Send 실패][Ctrl {id}] 포트가 열려 있지 않음: {message}");
+        else
+            manager.SendData(id, message); // 송신 로그는 OnDataSent 로 남는다
+
+        sendInput.text = string.Empty;
+        sendInput.ActivateInputField();
+    }
+
+    #endregion
 
     public void ClearLog()
     {

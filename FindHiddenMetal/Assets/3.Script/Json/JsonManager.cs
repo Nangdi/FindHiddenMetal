@@ -49,8 +49,6 @@ public class GameDynamicData
     public int rankingKeepDays = 3;
     // 랭킹 표시 인원 (미정, 임시값)
     public int rankingShowCount = 5;
-    // 금속탐지 장치 컨트롤러 id (port.json 의 controllerId)
-    public int deviceControllerId = 1;
     // 회전 0단계일 때 탐지목표물 8개의 격자 좌표. 정답 편집 모드(F3)에서 실제 원판을 보고 입력한다.
     public List<GridPos> baseTargets = new List<GridPos>
     {
@@ -179,6 +177,12 @@ public class JsonManager : MonoBehaviour
     public void SaveGameSettingData()
     {
         SaveData(gameSettingData, gameDataPath);
+    }
+
+    // 현재 포트 설정을 port.json 파일에 저장합니다 (디버그 패널에서 포트를 바꿨을 때).
+    public void SavePortJson()
+    {
+        SaveData(portJson, portPath);
     }
 
     // 현재 운영값(정답 배치, 회전 방향 등)을 Setting.json 파일에 저장합니다.

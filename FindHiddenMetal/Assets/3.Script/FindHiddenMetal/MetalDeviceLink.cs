@@ -16,7 +16,8 @@ public class DeviceStateData
 // PC → 컨트롤러 : LED_ON / LED_OFF / ROTATE / STATE?
 // 컨트롤러 → PC : ROT_DONE[,n] / STATE,n / ERR,내용
 //
-// 포트가 닫혀 있으면(장치 없음, port.json 비활성) 회전을 흉내 내어 체험 흐름이 멈추지 않게 한다.
+// 컨트롤러 id는 구분하지 않는다: 열린 어느 포트로 들어온 메시지든 똑같이 처리하고, 명령은 열린 모든 포트로 보낸다.
+// 열린 포트가 없으면(장치 없음, port.json 비활성) 회전을 흉내 내어 체험 흐름이 멈추지 않게 한다.
 public class MetalDeviceLink : SerialPortManager
 {
     public const string CmdLedOn = "LED_ON";
@@ -37,13 +38,11 @@ public class MetalDeviceLink : SerialPortManager
 
     public int RotationIndex => state.rotationIndex;
     public bool IsRotating { get; private set; }
-    public bool IsDeviceOpen => IsControllerOpen(ControllerId);
+    public bool IsDeviceOpen => IsAnyOpen;
 
     private DeviceStateData state = new DeviceStateData();
     private string statePath;
     private Coroutine rotateRoutine;
-
-    private int ControllerId => JsonManager.instance != null ? JsonManager.instance.gameDynamicData.deviceControllerId : 1;
 
     protected override void Awake()
     {
@@ -65,7 +64,7 @@ public class MetalDeviceLink : SerialPortManager
     {
         base.Start();
         // 컨트롤러가 현재 단계를 알고 있으면 STATE,n 으로 맞춰 준다. 응답이 없으면 저장값을 쓴다.
-        if (IsDeviceOpen) SendData(ControllerId, CmdState);
+        if (IsDeviceOpen) SendAll(CmdState);
     }
 
     public void LedOn() => SendIfOpen(CmdLedOn);
@@ -78,9 +77,9 @@ public class MetalDeviceLink : SerialPortManager
         IsRotating = true;
 
         if (IsDeviceOpen)
-            SendData(ControllerId, CmdRotate);
+            SendAll(CmdRotate);
         else
-            Debug.LogWarning($"[Ctrl {ControllerId}] 포트 닫힘 - 원판 회전을 흉내 냄");
+            Debug.LogWarning("[장치] 열린 포트 없음 - 원판 회전을 흉내 냄");
 
         float wait = IsDeviceOpen
             ? Mathf.Max(1f, JsonManager.instance.gameDynamicData.rotateTimeoutSeconds)
@@ -92,13 +91,14 @@ public class MetalDeviceLink : SerialPortManager
     {
         yield return new WaitForSecondsRealtime(seconds);
         rotateRoutine = null;
-        if (isTimeout) Debug.LogWarning($"[Ctrl {ControllerId}] {MsgRotateDone} 응답 없음({seconds}s) - 회전된 것으로 처리");
+        if (isTimeout) Debug.LogWarning($"[장치] {MsgRotateDone} 응답 없음({seconds}s) - 회전된 것으로 처리");
         CompleteRotation(state.rotationIndex + 1);
     }
 
     protected override void ReceivedData(int controllerId, string data)
     {
-        if (controllerId != ControllerId || string.IsNullOrEmpty(data)) return;
+        // 어느 컨트롤러로 들어왔는지는 구분하지 않는다 (로그에만 남김).
+        if (string.IsNullOrEmpty(data)) return;
 
         string[] parts = data.Trim().Split(',');
         string head = parts[0].Trim().ToUpperInvariant();
@@ -152,8 +152,8 @@ public class MetalDeviceLink : SerialPortManager
 
     private void SendIfOpen(string cmd)
     {
-        if (IsDeviceOpen) SendData(ControllerId, cmd);
-        else Debug.Log($"[Ctrl {ControllerId}] 포트 닫힘 - 송신 생략: {cmd}");
+        if (IsDeviceOpen) SendAll(cmd);
+        else Debug.Log($"[장치] 열린 포트 없음 - 송신 생략: {cmd}");
     }
 
     private static int Normalize(int index)

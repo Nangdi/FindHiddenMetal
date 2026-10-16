@@ -8,7 +8,6 @@
     "rotateClockwise": true,
     "rankingKeepDays": 3,
     "rankingShowCount": 5,
-    "deviceControllerId": 1,
     "baseTargets": [
         { "x": 2, "y": 2 },
         { "x": 5, "y": 1 },

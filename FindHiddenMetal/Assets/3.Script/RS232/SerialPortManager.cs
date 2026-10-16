@@ -19,6 +19,16 @@ public class SerialPortManager : MonoBehaviour
         return ch != null && ch.IsOpen;
     }
 
+    // 열린 포트가 하나라도 있는지 (어느 컨트롤러든 상관없을 때)
+    public bool IsAnyOpen
+    {
+        get
+        {
+            foreach (var ch in channels) if (ch.IsOpen) return true;
+            return false;
+        }
+    }
+
     protected virtual void Awake()
     {
         if (Instance == null)
@@ -59,14 +69,56 @@ public class SerialPortManager : MonoBehaviour
                 continue;
             }
 
-            var channel = new SerialPortChannel(
-                cfg.controllerId, cfg.com, cfg.baudLate,
-                OnChannelMessage,
-                OnChannelSent,
-                OnChannelConnectionChanged);
-            channels.Add(channel);
-            channel.Open();
+            OpenChannel(cfg);
         }
+    }
+
+    // port.json 의 현재 값으로 해당 컨트롤러 포트를 닫았다가 다시 연다 (디버그 패널에서 포트를 바꿨을 때).
+    // 비활성(enabled=false)이면 닫기만 한다. 열리면 true.
+    public bool Reconnect(int controllerId)
+    {
+        var channel = FindChannel(controllerId);
+        if (channel != null)
+        {
+            channel.Close();
+            channels.Remove(channel);
+        }
+
+        var cfg = FindConfig(controllerId);
+        if (cfg == null)
+        {
+            Debug.LogWarning($"[Ctrl {controllerId}] port.json에 설정이 없어 재연결하지 않음");
+            return false;
+        }
+        if (!cfg.enabled)
+        {
+            Debug.Log($"[Ctrl {controllerId}] RS232 비활성 - 포트 닫음");
+            OnConnectionChanged?.Invoke(controllerId, false);
+            return false;
+        }
+
+        Debug.Log($"[Ctrl {controllerId}] 재연결 ({cfg.com}, {cfg.baudLate}bps)");
+        return OpenChannel(cfg);
+    }
+
+    public static PortConfig FindConfig(int controllerId)
+    {
+        var ports = JsonManager.instance != null ? JsonManager.instance.portJson?.ports : null;
+        if (ports == null) return null;
+        foreach (var cfg in ports)
+            if (cfg.controllerId == controllerId) return cfg;
+        return null;
+    }
+
+    private bool OpenChannel(PortConfig cfg)
+    {
+        var channel = new SerialPortChannel(
+            cfg.controllerId, cfg.com, cfg.baudLate,
+            OnChannelMessage,
+            OnChannelSent,
+            OnChannelConnectionChanged);
+        channels.Add(channel);
+        return channel.Open();
     }
 
     private void OnChannelMessage(int controllerId, string data)
@@ -101,6 +153,19 @@ public class SerialPortManager : MonoBehaviour
             return;
         }
         channel.Send(message);
+    }
+
+    // 열린 모든 포트로 송신 (어느 컨트롤러로 가야 하는지 구분할 필요가 없을 때). 보낸 포트 수를 돌려준다.
+    public int SendAll(string message)
+    {
+        int sent = 0;
+        foreach (var ch in channels)
+        {
+            if (!ch.IsOpen) continue;
+            ch.Send(message);
+            sent++;
+        }
+        return sent;
     }
 
     protected SerialPortChannel FindChannel(int controllerId)
