@@ -10,6 +10,9 @@ using UnityEngine;
 // - 제한 시간이 끝나면 그때까지 고른 칸으로 판정한다(없으면 0개). 두 경우 모두 랭킹에 기록한다.
 // - 체험 중 HOME을 누르면 기록 없이 원판을 돌리고 대기 화면으로 간다.
 // - 결과 화면을 닫으면 LED 소등 + 원판 90도 회전, 완료 신호를 받은 뒤 다음 체험을 받는다.
+// - 대기 화면에서 체험 시작을 누르면 컨트롤러에 START를 보낸다.
+// - 대기·정답 편집·원판 회전 대기 화면이 아닐 때 idleTimeoutSeconds(기본 30초) 동안 입력이 없으면 대기 화면으로 간다.
+//   체험 중이면 기록 없이 중단, 결과 화면이면 결과 닫기와 같이 원판을 돌린다.
 // - 대기 화면에서 F3: 정답 편집 모드(Edit). 지금 원판 배치를 0단계 정답으로 입력하고 회전 방향을 정한다.
 public class FlowController : MonoBehaviour
 {
@@ -39,7 +42,6 @@ public class FlowController : MonoBehaviour
     private readonly GridJudge judge = new GridJudge();
     private RankingStore ranking;
     private float lastInputTime;
-    private float resultShownTime;
     private bool replayAfterReady;
     private bool finishing;
     private bool showDebugAnswers;
@@ -51,7 +53,7 @@ public class FlowController : MonoBehaviour
     {
         ranking = new RankingStore(Config.rankingKeepDays);
 
-        if (idlePanel != null) idlePanel.OnStart += () => GoTo(State.Guide);
+        if (idlePanel != null) idlePanel.OnStart += StartExperience;
         if (guidePanel != null) guidePanel.OnConfirm += () => GoTo(State.Countdown);
         if (countdownPanel != null) countdownPanel.OnDone += () => { if (Current == State.Countdown) GoTo(State.Play); };
         if (playPanel != null) playPanel.OnSubmit += Submit;
@@ -130,13 +132,17 @@ public class FlowController : MonoBehaviour
             case State.Play:
                 BeginPlay();
                 break;
-            case State.Result:
-                resultShownTime = Time.unscaledTime;
-                break;
             case State.Edit:
                 BeginEdit();
                 break;
         }
+    }
+
+    private void StartExperience()
+    {
+        if (Current != State.Idle) return;
+        if (Device != null) Device.SendStart();
+        GoTo(State.Guide);
     }
 
     private void BeginPlay()
@@ -245,28 +251,27 @@ public class FlowController : MonoBehaviour
         GoTo(replayAfterReady ? State.Countdown : State.Idle);
     }
 
+    // 관람객이 떠난 경우: 마지막 입력 후 idleTimeoutSeconds가 지나면 대기 화면으로.
+    // 대기 화면, 정답 편집(운영자), 원판 회전 대기(끝나면 알아서 대기 화면), 카운트다운(입력 없이 지나가는 화면)은 제외.
     private void CheckIdleTimeout()
     {
-        float now = Time.unscaledTime;
+        if (Config.idleTimeoutSeconds <= 0f || Time.unscaledTime - lastInputTime < Config.idleTimeoutSeconds) return;
 
-        if (Current == State.Result)
+        switch (Current)
         {
-            if (Config.resultAutoCloseSeconds > 0f && now - resultShownTime >= Config.resultAutoCloseSeconds
-                && now - lastInputTime >= Config.resultAutoCloseSeconds)
+            case State.Guide:
+                Debug.Log("무입력 - 체험 안내에서 대기 화면으로");
+                GoTo(State.Idle);
+                break;
+            case State.Play:
+                if (finishing) return;
+                Debug.Log("무입력 - 체험 중단");
+                AbortPlay();
+                break;
+            case State.Result:
+                Debug.Log("무입력 - 결과 화면 닫기");
                 ResetDevice(false);
-            return;
-        }
-
-        if (Config.idleTimeoutSeconds <= 0f || now - lastInputTime < Config.idleTimeoutSeconds) return;
-
-        if (Current == State.Guide)
-        {
-            GoTo(State.Idle);
-        }
-        else if (Current == State.Play && !finishing)
-        {
-            Debug.Log("무입력 - 체험 중단");
-            AbortPlay();
+                break;
         }
     }
 

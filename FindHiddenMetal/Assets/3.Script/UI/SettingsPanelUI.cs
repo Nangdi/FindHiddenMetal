@@ -14,6 +14,11 @@ using UnityEngine.UI;
 //  2) 씬의 설정창에 Toggle 오브젝트를 하나 만든다.
 //  3) 아래 boolSettings 목록에 (필드 이름, Toggle)을 연결한다.
 // 저장/복원은 리플렉션으로 처리되므로 이 스크립트를 고칠 필요가 없다.
+//
+// [숫자 설정을 추가하는 방법] (Setting.json = GameDynamicData 의 int/float 필드)
+//  1) 씬의 설정창에 InputField 오브젝트를 하나 만든다.
+//  2) 아래 numberSettings 목록에 (필드 이름, InputField)를 연결한다.
+// 입력을 마치면(Enter, 포커스 해제) 바로 Setting.json 에 저장한다. 숫자가 아니면 이전 값으로 되돌린다.
 public class SettingsPanelUI : MonoBehaviour
 {
     // gameSettingData.json 의 bool 필드 1개와 씬의 Toggle 1개를 연결하는 항목.
@@ -29,6 +34,20 @@ public class SettingsPanelUI : MonoBehaviour
         [NonSerialized] public UnityAction<bool> handler;
     }
 
+    // Setting.json(GameDynamicData) 의 int/float 필드 1개와 씬의 InputField 1개를 연결하는 항목.
+    [Serializable]
+    public class NumberSetting
+    {
+        [Tooltip("GameDynamicData 안의 int/float 필드 이름 (예: idleTimeoutSeconds)")]
+        public string fieldName;
+        public InputField input;
+        [Tooltip("입력할 수 있는 최솟값")]
+        public float min = 0f;
+
+        [NonSerialized] public FieldInfo field;
+        [NonSerialized] public UnityAction<string> handler;
+    }
+
     // 스타트팩이 기본으로 즉시 반영해 주는 설정 필드 이름
     private const string UseUnityOnTopField = "useUnityOnTop";
     private const string ShowMouseCursorField = "showMouseCursor";
@@ -42,6 +61,9 @@ public class SettingsPanelUI : MonoBehaviour
 
     [Header("설정 토글 (gameSettingData.json 의 bool 필드)")]
     [SerializeField] private List<BoolSetting> boolSettings = new List<BoolSetting>();
+
+    [Header("숫자 설정 (Setting.json 의 int/float 필드)")]
+    [SerializeField] private List<NumberSetting> numberSettings = new List<NumberSetting>();
 
     [Header("적용 대상 (비워두면 자동 탐색)")]
     [SerializeField] private UnityAlwaysOnTop alwaysOnTop;
@@ -71,6 +93,15 @@ public class SettingsPanelUI : MonoBehaviour
             captured.toggle.onValueChanged.AddListener(captured.handler);
         }
 
+        foreach (var setting in numberSettings)
+        {
+            if (setting == null || setting.field == null || setting.input == null) continue;
+
+            var captured = setting;
+            captured.handler = text => OnNumberChanged(captured, text);
+            captured.input.onEndEdit.AddListener(captured.handler);
+        }
+
         if (hideOnStart)
             SetPanelVisible(false);
     }
@@ -82,6 +113,14 @@ public class SettingsPanelUI : MonoBehaviour
             if (setting == null || setting.toggle == null || setting.handler == null) continue;
 
             setting.toggle.onValueChanged.RemoveListener(setting.handler);
+            setting.handler = null;
+        }
+
+        foreach (var setting in numberSettings)
+        {
+            if (setting == null || setting.input == null || setting.handler == null) continue;
+
+            setting.input.onEndEdit.RemoveListener(setting.handler);
             setting.handler = null;
         }
     }
@@ -137,6 +176,33 @@ public class SettingsPanelUI : MonoBehaviour
             if (field.FieldType == typeof(bool) && !bound.Contains(field.Name))
                 Debug.LogWarning($"[Settings] bool 필드 '{field.Name}' 에 연결된 토글이 없습니다. 씬에 Toggle 을 만들고 목록에 추가하세요.", this);
         }
+
+        foreach (var setting in numberSettings)
+        {
+            if (setting == null) continue;
+            setting.field = null;
+
+            var field = string.IsNullOrEmpty(setting.fieldName)
+                ? null
+                : typeof(GameDynamicData).GetField(setting.fieldName, BindingFlags.Public | BindingFlags.Instance);
+            if (field == null)
+            {
+                Debug.LogError($"[Settings] GameDynamicData 에 '{setting.fieldName}' 필드가 없습니다.", this);
+                continue;
+            }
+            if (field.FieldType != typeof(int) && field.FieldType != typeof(float))
+            {
+                Debug.LogError($"[Settings] '{setting.fieldName}' 은 int/float 가 아니라 {field.FieldType.Name} 입니다.", this);
+                continue;
+            }
+            if (setting.input == null)
+            {
+                Debug.LogWarning($"[Settings] '{setting.fieldName}' 에 연결된 InputField 가 없습니다.", this);
+                continue;
+            }
+
+            setting.field = field;
+        }
     }
 
     // 설정창 표시/숨김 + 마우스 커서 연동.
@@ -178,6 +244,16 @@ public class SettingsPanelUI : MonoBehaviour
             if (setting == null || setting.field == null || setting.toggle == null) continue;
             setting.toggle.isOn = (bool)setting.field.GetValue(data);
         }
+
+        var dynamicData = JsonManager.instance.gameDynamicData;
+        if (dynamicData != null)
+        {
+            foreach (var setting in numberSettings)
+            {
+                if (setting == null || setting.field == null || setting.input == null) continue;
+                setting.input.SetTextWithoutNotify(Convert.ToString(setting.field.GetValue(dynamicData), System.Globalization.CultureInfo.InvariantCulture));
+            }
+        }
         _syncing = false;
     }
 
@@ -205,6 +281,29 @@ public class SettingsPanelUI : MonoBehaviour
 
         Apply(setting.fieldName, value);
         OnSettingChanged?.Invoke(setting.fieldName, value);
+    }
+
+    private void OnNumberChanged(NumberSetting setting, string text)
+    {
+        if (_syncing) return;
+
+        var jm = JsonManager.instance;
+        if (jm == null || setting.field == null) return;
+
+        if (!float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float value))
+        {
+            Debug.LogWarning($"[Settings] '{setting.fieldName}' 에 숫자가 아닌 값 '{text}' - 이전 값으로 되돌림", this);
+            SyncFromData();
+            return;
+        }
+
+        value = Mathf.Max(setting.min, value);
+        object boxed = setting.field.FieldType == typeof(int) ? (object)Mathf.RoundToInt(value) : value;
+        setting.field.SetValue(jm.gameDynamicData, boxed);
+        jm.SaveGameDynamicData();               // Setting.json 에 실시간 저장
+        Debug.Log($"[Settings] {setting.fieldName} = {boxed}");
+
+        SyncFromData();                         // 보정된 값(최솟값, 정수 반올림)을 입력칸에 다시 표시
     }
 
     // 스타트팩이 기본으로 제공하는 설정의 즉시 반영.

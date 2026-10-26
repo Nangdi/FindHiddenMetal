@@ -13,13 +13,14 @@ public class DeviceStateData
 // 금속탐지 장치 컨트롤러와의 RS232 통신.
 // SerialPortManager 대신 이 컴포넌트를 씬에 둔다. 규약은 Docs/ControllerProtocol.md 참고.
 //
-// PC → 컨트롤러 : LED_ON / LED_OFF / ROTATE / STATE?
+// PC → 컨트롤러 : START / LED_ON / LED_OFF / ROTATE / STATE?
 // 컨트롤러 → PC : ROT_DONE[,n] / STATE,n / ERR,내용
 //
 // 컨트롤러 id는 구분하지 않는다: 열린 어느 포트로 들어온 메시지든 똑같이 처리하고, 명령은 열린 모든 포트로 보낸다.
 // 열린 포트가 없으면(장치 없음, port.json 비활성) 회전을 흉내 내어 체험 흐름이 멈추지 않게 한다.
 public class MetalDeviceLink : SerialPortManager
 {
+    public const string CmdStart = "START";
     public const string CmdLedOn = "LED_ON";
     public const string CmdLedOff = "LED_OFF";
     public const string CmdRotate = "ROTATE";
@@ -67,6 +68,8 @@ public class MetalDeviceLink : SerialPortManager
         if (IsDeviceOpen) SendAll(CmdState);
     }
 
+    // 대기 화면에서 체험 시작을 눌렀을 때.
+    public void SendStart() => SendIfOpen(CmdStart);
     public void LedOn() => SendIfOpen(CmdLedOn);
     public void LedOff() => SendIfOpen(CmdLedOff);
 
