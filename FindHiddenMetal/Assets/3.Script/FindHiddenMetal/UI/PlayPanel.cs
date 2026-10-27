@@ -22,8 +22,12 @@ public class PlayPanel : PanelBase
     [SerializeField] private Button submitButton;
     [SerializeField] private Button homeButton;
 
+    public enum CellTap { Select, Deselect, Full }
+
     public event Action<List<GridPos>> OnSubmit;
     public event Action OnHome;
+    // 칸을 눌렀을 때 (소리 연결용). Full = 이미 다 골라서 더 고를 수 없음
+    public event Action<CellTap> OnCellTap;
 
     private readonly List<GridCellView> selected = new List<GridCellView>();
     private int maxSelect = 1;
@@ -96,13 +100,21 @@ public class PlayPanel : PanelBase
     {
         if (!interactable) return;
 
-        if (selected.Remove(cell)) cell.SetSelected(false);
+        CellTap tap;
+        if (selected.Remove(cell))
+        {
+            cell.SetSelected(false);
+            tap = CellTap.Deselect;
+        }
         else if (selected.Count < maxSelect)
         {
             selected.Add(cell);
             cell.SetSelected(true);
+            tap = CellTap.Select;
         }
+        else tap = CellTap.Full;
         RefreshSelectionUI();
+        OnCellTap?.Invoke(tap);
     }
 
     private void ClearSelection()

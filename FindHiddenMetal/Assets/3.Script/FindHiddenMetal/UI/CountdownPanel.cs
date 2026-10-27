@@ -14,6 +14,8 @@ public class CountdownPanel : PanelBase
     [SerializeField] private float popSeconds = 0.25f;
 
     public event Action OnDone;
+    // 숫자가 바뀔 때마다 (소리 연결용)
+    public event Action<int> OnNumber;
 
     private Coroutine routine;
 
@@ -35,6 +37,7 @@ public class CountdownPanel : PanelBase
         for (int n = seconds; n > 0; n--)
         {
             if (numberText != null) numberText.text = n.ToString();
+            OnNumber?.Invoke(n);
             float t = 0f;
             while (t < 1f)
             {

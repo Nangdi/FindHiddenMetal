@@ -138,6 +138,7 @@ GameObject:
   - component: {fileID: 3314962695733046278}
   - component: {fileID: 5419796530389228376}
   - component: {fileID: 212069132388139332}
+  - component: {fileID: 5320325622725298590}
   m_Layer: 5
   m_Name: ConfirmButton
   m_TagString: Untagged
@@ -246,3 +247,16 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5320325622725298590
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3855638426592241531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button

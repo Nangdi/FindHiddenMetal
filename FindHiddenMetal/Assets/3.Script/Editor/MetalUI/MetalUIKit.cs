@@ -55,11 +55,11 @@ public static class MetalUIKit
     public static readonly Color DebugColor = new Color32(255, 0, 255, 255);     // 개발자용 정답 위치
     public static readonly Color PlaceholderColor = new Color32(255, 0, 200, 255); // 디자인 PNG가 없을 때 임시 이미지
 
-    // 격자 영역 (정적 레이어의 격자 바깥 선까지). 칸 크기는 GridBoard가 gridSize로 나눠 정한다.
+    // 격자 영역 (정적 레이어의 격자 바깥 선까지). 처음 배치값이며, MetalGridMeasure가 그림에서 칸 위치를 재서 덮어쓴다.
     public static readonly Vector2 PlayGridCenter = new Vector2(3, 101);
     public static readonly Vector2 PlayGridSize = new Vector2(1120, 1082);
-    public static readonly Vector2 ResultGridCenter = new Vector2(-4, 404);
-    public static readonly Vector2 ResultGridSize = new Vector2(800, 784);
+    public static readonly Vector2 ResultGridCenter = new Vector2(-4, 405);
+    public static readonly Vector2 ResultGridSize = new Vector2(800, 782);
     public const int GridLine = 2; // 격자 선 두께 (GridLayoutGroup padding/spacing)
 
     // 부품 PNG 크기 (Docs/Design/export_psd.py가 PSD에서 뽑는다. 없으면 이 크기로 임시 이미지를 만든다)
@@ -72,6 +72,8 @@ public static class MetalUIKit
         ("Button_Home", 380, 170),
         ("Cell_Select", 92, 88),
         ("Mark_Match", 65, 63),
+        ("Mark_Select", 65, 63),
+        ("Cell_Select_Neutral", 92, 88),
         ("Mark_Correct", 65, 63),
         ("Mark_Wrong", 65, 63),
         ("RankRow_Mine", 1050, 90),

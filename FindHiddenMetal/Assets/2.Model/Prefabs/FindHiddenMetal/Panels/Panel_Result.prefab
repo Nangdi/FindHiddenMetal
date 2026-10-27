@@ -34,8 +34,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -4, y: 404}
-  m_SizeDelta: {x: 800, y: 784}
+  m_AnchoredPosition: {x: -3.9919052, y: 403.99207}
+  m_SizeDelta: {x: 795.9008, y: 779.89453}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3382179154205762480
 MonoBehaviour:
@@ -74,6 +74,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellPrefab: {fileID: 243968027728334260, guid: aeb9f1e3d300d164baa36647fcacbb4e, type: 3}
+  columns:
+  - {x: 0, y: 64.4391}
+  - {x: 66.49678, y: 130.9423}
+  - {x: 132.9984, y: 197.43748}
+  - {x: 199.4984, y: 263.94067}
+  - {x: 265.9984, y: 330.43433}
+  - {x: 332.50073, y: 396.93915}
+  - {x: 399.0014, y: 463.43433}
+  - {x: 465.4975, y: 529.9423}
+  - {x: 531.99994, y: 596.4383}
+  - {x: 598.4975, y: 662.94073}
+  - {x: 664.99994, y: 729.4383}
+  - {x: 731.4982, y: 795.9008}
+  rows:
+  - {x: 0, y: 62.897766}
+  - {x: 65, y: 127.89456}
+  - {x: 130.00607, y: 192.89001}
+  - {x: 194.99841, y: 257.89456}
+  - {x: 259.9985, y: 322.8945}
+  - {x: 324.9985, y: 387.8961}
+  - {x: 389.99692, y: 452.8929}
+  - {x: 454.99692, y: 517.8961}
+  - {x: 519.99695, y: 582.8993}
+  - {x: 584.99695, y: 647.8993}
+  - {x: 649.99695, y: 712.8993}
+  - {x: 714.99854, y: 779.89453}
 --- !u!1 &400771668741264690
 GameObject:
   m_ObjectHideFlags: 0
@@ -1126,6 +1152,7 @@ GameObject:
   - component: {fileID: 2464502113078254182}
   - component: {fileID: 5801147408093418690}
   - component: {fileID: 5352007806142479418}
+  - component: {fileID: 7789713330764601813}
   m_Layer: 5
   m_Name: HomeButton
   m_TagString: Untagged
@@ -1234,6 +1261,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7789713330764601813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4935196027296571509}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &5723785202462713145
 GameObject:
   m_ObjectHideFlags: 0
@@ -1373,6 +1413,9 @@ MonoBehaviour:
   rowRoot: {fileID: 3479500321018967075}
   mineRow: {fileID: 1074939677362868584}
   homeButton: {fileID: 5352007806142479418}
+  revealStartDelay: 0.4
+  picksHoldSeconds: 1.2
+  rankingDelay: 0.8
 --- !u!1 &8719692752502290658
 GameObject:
   m_ObjectHideFlags: 0

@@ -7,6 +7,7 @@ using UnityEngine;
 // Idle → Guide → Countdown → Play → Result → Ready(원판 회전 대기) → Idle (또는 다시 체험 시 Countdown)
 //
 // - 칸을 8개 모두 고르고 정답 확인을 한 번 누르면 바로 판정하고 결과 화면 + 장치 LED 점등(정답공개).
+//   결과 화면은 고른 칸을 고른 순서대로 하나씩 맞음/틀림으로 보여 준다(ResultPanel 순차 공개).
 // - 제한 시간이 끝나면 그때까지 고른 칸으로 판정한다(없으면 0개). 두 경우 모두 랭킹에 기록한다.
 // - 체험 중 HOME을 누르면 기록 없이 원판을 돌리고 대기 화면으로 간다.
 // - 결과 화면을 닫으면 LED 소등 + 원판 90도 회전, 완료 신호를 받은 뒤 다음 체험을 받는다.
@@ -210,6 +211,11 @@ public class FlowController : MonoBehaviour
         foreach (var p in judge.Targets)
             (judge.IsFound(p.x, p.y) ? data.found : data.missed).Add(p);
         data.wrong.AddRange(judge.WrongPositions);
+        // 결과 화면에서 고른 순서대로 하나씩 보여 준다 (같은 칸은 한 번만)
+        var seen = new HashSet<int>();
+        foreach (var p in positions)
+            if (seen.Add(p.y * Config.gridSize + p.x))
+                data.picks.Add(new ResultPick { pos = p, correct = judge.IsFound(p.x, p.y) });
 
         data.mine = ranking.Add(seconds, judge.FoundCount, judge.TotalCount, judge.WrongCount);
         data.rank = ranking.GetRank(data.mine);

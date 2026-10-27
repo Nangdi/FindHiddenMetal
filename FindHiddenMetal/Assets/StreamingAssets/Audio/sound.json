@@ -1,0 +1,101 @@
+{
+    "bgm": [
+        {
+            "key": "idle",
+            "file": "bgm_idle.wav",
+            "volume": 0.9
+        },
+        {
+            "key": "play",
+            "file": "bgm_play.wav",
+            "volume": 0.8
+        },
+        {
+            "key": "result",
+            "file": "bgm_result.wav",
+            "volume": 0.9
+        }
+    ],
+    "sfx": [
+        {
+            "key": "button",
+            "file": "sfx_button.wav",
+            "volume": 0.8
+        },
+        {
+            "key": "start",
+            "file": "sfx_start.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "submit",
+            "file": "sfx_submit.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "count",
+            "file": "sfx_count.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "go",
+            "file": "sfx_go.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "select",
+            "file": "sfx_select.wav",
+            "volume": 0.8
+        },
+        {
+            "key": "deselect",
+            "file": "sfx_deselect.wav",
+            "volume": 0.6
+        },
+        {
+            "key": "full",
+            "file": "sfx_full.wav",
+            "volume": 0.6
+        },
+        {
+            "key": "tick",
+            "file": "sfx_tick.wav",
+            "volume": 0.9
+        },
+        {
+            "key": "timeup",
+            "file": "sfx_timeup.wav",
+            "volume": 0.8
+        },
+        {
+            "key": "correct",
+            "file": "sfx_correct.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "wrong",
+            "file": "sfx_wrong.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "reveal",
+            "file": "sfx_reveal.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "success",
+            "file": "sfx_success.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "finish",
+            "file": "sfx_finish.wav",
+            "volume": 1.0
+        },
+        {
+            "key": "picks",
+            "file": "sfx_picks.wav",
+            "volume": 0.9
+        }
+    ]
+}

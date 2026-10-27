@@ -71,6 +71,7 @@ GameObject:
   - component: {fileID: 3065068310574059785}
   - component: {fileID: 9216990948532190106}
   - component: {fileID: 8742293398431908156}
+  - component: {fileID: 3431355770524593405}
   m_Layer: 5
   m_Name: HomeButton
   m_TagString: Untagged
@@ -179,6 +180,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3431355770524593405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4345656697561934361}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &4808078070294484705
 GameObject:
   m_ObjectHideFlags: 0
@@ -191,6 +205,7 @@ GameObject:
   - component: {fileID: 8762558705103717883}
   - component: {fileID: 2084430396716084440}
   - component: {fileID: 4943239775586608663}
+  - component: {fileID: 4039554659463608577}
   m_Layer: 5
   m_Name: SubmitButton
   m_TagString: Untagged
@@ -299,6 +314,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4039554659463608577
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4808078070294484705}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: submit
 --- !u!1 &5084370661595404678
 GameObject:
   m_ObjectHideFlags: 0
@@ -542,8 +570,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 3, y: 101}
-  m_SizeDelta: {x: 1120, y: 1082}
+  m_AnchoredPosition: {x: 3.0065308, y: 101.493515}
+  m_SizeDelta: {x: 1115.8881, y: 1076.885}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &4700228265991092349
 MonoBehaviour:
@@ -582,6 +610,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellPrefab: {fileID: 1978461281992360276, guid: 12025b30e82a52846a6fb0cc24d27334, type: 3}
+  columns:
+  - {x: 0, y: 91.05769}
+  - {x: 93.13141, y: 184.29968}
+  - {x: 186.36539, y: 277.42947}
+  - {x: 279.4968, y: 370.55768}
+  - {x: 372.6351, y: 463.8063}
+  - {x: 465.8735, y: 556.9327}
+  - {x: 558.9983, y: 650.0607}
+  - {x: 652.1311, y: 743.3039}
+  - {x: 745.3656, y: 836.4295}
+  - {x: 838.4989, y: 929.55634}
+  - {x: 931.63446, y: 1022.80676}
+  - {x: 1024.8721, y: 1115.8881}
+  rows:
+  - {x: 0, y: 87.88641}
+  - {x: 89.99359, y: 177.88641}
+  - {x: 179.992, y: 267.88638}
+  - {x: 269.99838, y: 357.89603}
+  - {x: 359.99838, y: 447.88638}
+  - {x: 449.9951, y: 534.8849}
+  - {x: 536.9951, y: 624.8849}
+  - {x: 626.99524, y: 714.896}
+  - {x: 716.9999, y: 804.89453}
+  - {x: 806.9966, y: 894.8834}
+  - {x: 896.9966, y: 984.8834}
+  - {x: 987.00146, y: 1076.885}
 --- !u!1 &7523333176064886674
 GameObject:
   m_ObjectHideFlags: 0

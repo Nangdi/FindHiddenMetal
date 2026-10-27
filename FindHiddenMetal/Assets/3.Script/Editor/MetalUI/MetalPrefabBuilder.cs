@@ -63,6 +63,9 @@ public static class MetalPrefabBuilder
 
         GameObject canvasPrefab = GetOrCreate(CanvasPrefabPath, () => CreateCanvas(panels));
 
+        // 격자 칸을 정적 레이어 그림의 실제 칸 위치에 맞춘다
+        MetalGridMeasure.MeasureAll();
+
         ApplyToScene(canvasPrefab);
         MetalSpriteExporter.ExportGuides();
         AssetDatabase.SaveAssets();
@@ -84,8 +87,9 @@ public static class MetalPrefabBuilder
     private static Sprite Part(string name) => LoadSprite(PartSpritePath(name));
 
     // 글자가 구워진 스프라이트 버튼 (스프라이트 크기 = 배치 크기). disabledSprite가 있으면 비활성 때 바꿔 보인다.
+    // 누르면 sfxKey 효과음 (ButtonSfx).
     private static Button CreateSpriteButton(RectTransform parent, string name, string sprite, Vector2 pos, Vector2 size,
-        string disabledSprite = null)
+        string disabledSprite = null, string sfxKey = "button")
     {
         RectTransform rt = Place(CreateRect(name, parent), pos, size);
         Image image = AddSprite(rt, Part(sprite));
@@ -101,6 +105,7 @@ public static class MetalPrefabBuilder
             state.disabledSprite = Part(disabledSprite);
             button.spriteState = state;
         }
+        rt.gameObject.AddComponent<ButtonSfx>().Key = sfxKey;
         return button;
     }
 
@@ -115,7 +120,7 @@ public static class MetalPrefabBuilder
         return text;
     }
 
-    // 격자 영역. 칸 크기는 GridBoard가 런타임에 gridSize로 나눠 정한다.
+    // 격자 영역. 칸 위치는 MetalGridMeasure가 정적 레이어 그림에서 재서 넣는다 (못 재면 GridBoard가 똑같이 나눔).
     private static GridBoard CreateBoard(RectTransform parent, string name, Vector2 pos, Vector2 size, GameObject cell)
     {
         RectTransform root = Place(CreateRect(name, parent), pos, size);
@@ -155,8 +160,9 @@ public static class MetalPrefabBuilder
         Image background = AddImage(StretchFull(CreateRect("Background", root)), Color.clear);
         background.raycastTarget = true;
 
+        // 고른 칸은 중립 회색 (PSD Cell_Select 주황은 결과 범례 '정답 일치'와 같은 그림이라 헷갈림)
         RectTransform highlight = StretchFull(CreateRect("Highlight", root));
-        AddSprite(highlight, Part("Cell_Select"));
+        AddSprite(highlight, Part("Cell_Select_Neutral"));
         highlight.gameObject.SetActive(false);
 
         CanvasGroup found = CreateMark(root, "FoundMark", "Mark_Correct");
@@ -181,11 +187,16 @@ public static class MetalPrefabBuilder
         return root.gameObject;
     }
 
-    // 결과 화면 격자 한 칸 (누를 수 없음): FoundMark(정답 일치) / RevealMark(못 찾은 정답) / WrongMark(오답)
+    // 결과 화면 격자 한 칸 (누를 수 없음): Highlight(순차 공개 첫 단계 - 내가 고른 칸) / FoundMark(정답 일치) / RevealMark(못 찾은 정답) / WrongMark(오답)
     private static GameObject CreateResultCell()
     {
         RectTransform root = CreateRect("ResultCell", null);
         root.sizeDelta = new Vector2(65, 63);
+
+        // 판정 전 내가 고른 칸은 진행 화면과 같은 중립 회색 (Mark_Match를 회색으로 바꾼 Mark_Select)
+        RectTransform highlight = StretchFull(CreateRect("Highlight", root));
+        AddSprite(highlight, Part("Mark_Select"));
+        highlight.gameObject.SetActive(false);
 
         CanvasGroup found = CreateMark(root, "FoundMark", "Mark_Match");
         CanvasGroup reveal = CreateMark(root, "RevealMark", "Mark_Correct");
@@ -193,6 +204,7 @@ public static class MetalPrefabBuilder
 
         var view = root.gameObject.AddComponent<GridCellView>();
         Wire(view,
+            ("highlight", highlight.gameObject),
             ("foundMark", found),
             ("revealMark", reveal.gameObject),
             ("wrongMark", wrong));
@@ -245,7 +257,8 @@ public static class MetalPrefabBuilder
     private static GameObject CreateIdlePanel()
     {
         RectTransform panel = CreatePanelRoot("Idle");
-        Button start = CreateSpriteButton(panel, "StartButton", "Button_Start", new Vector2(3, -762), new Vector2(1030, 230));
+        Button start = CreateSpriteButton(panel, "StartButton", "Button_Start", new Vector2(3, -762), new Vector2(1030, 230),
+            sfxKey: "start");
 
         var view = panel.gameObject.AddComponent<IdlePanel>();
         Wire(view, ("startButton", start));
@@ -290,7 +303,7 @@ public static class MetalPrefabBuilder
 
         Button home = CreateSpriteButton(panel, "HomeButton", "Button_Home", new Vector2(-346, -783), new Vector2(380, 170));
         Button submit = CreateSpriteButton(panel, "SubmitButton", "Button_Submit", new Vector2(354, -783), new Vector2(380, 170),
-            "Button_Submit_Off");
+            "Button_Submit_Off", "submit");
         submit.interactable = false;
 
         var view = panel.gameObject.AddComponent<PlayPanel>();
@@ -431,6 +444,7 @@ public static class MetalPrefabBuilder
         var colors = button.colors;
         colors.disabledColor = DisabledTint;
         button.colors = colors;
+        rt.gameObject.AddComponent<ButtonSfx>();
         return button;
     }
 
@@ -524,7 +538,10 @@ public static class MetalPrefabBuilder
 
         if (UnityEngine.Object.FindObjectOfType<GameManager>(true) == null) Undo.AddComponent<GameManager>(go);
         if (UnityEngine.Object.FindObjectOfType<GameTimer>(true) == null) Undo.AddComponent<GameTimer>(go);
-        return GetOrAdd<FlowController>(go);
+        FlowController flow = GetOrAdd<FlowController>(go);
+        GetOrAdd<SoundManager>(go);
+        GetOrAdd<MetalSoundDirector>(go);
+        return flow;
     }
 
     // 씬의 기본 SerialPortManager를 장치 통신을 처리하는 MetalDeviceLink로 교체한다.

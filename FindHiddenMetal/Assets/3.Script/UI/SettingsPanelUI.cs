@@ -68,6 +68,9 @@ public class SettingsPanelUI : MonoBehaviour
     [Header("적용 대상 (비워두면 자동 탐색)")]
     [SerializeField] private UnityAlwaysOnTop alwaysOnTop;
 
+    // 설정창이 열려 있는지 (통신 디버그 패널이 따라간다)
+    public bool IsOpen => panelRoot != null && panelRoot.activeSelf;
+
     // 설정이 바뀔 때 (필드 이름, 새 값)을 알린다. 프로젝트별 반영 처리는 여기에 붙인다.
     public event Action<string, bool> OnSettingChanged;
 

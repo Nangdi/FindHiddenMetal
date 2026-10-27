@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -17,15 +18,29 @@ public class ResultData
 
     // 결과 격자
     public int gridSize;
+    public List<ResultPick> picks = new List<ResultPick>(); // 고른 칸 (고른 순서대로, 순차 공개용)
     public List<GridPos> found = new List<GridPos>();   // 고른 칸 중 정답 (정답 일치)
     public List<GridPos> missed = new List<GridPos>();  // 고르지 않은 정답 (정답)
     public List<GridPos> wrong = new List<GridPos>();   // 고른 칸 중 오답 (X)
 }
 
+public class ResultPick
+{
+    public GridPos pos;
+    public bool correct;
+}
+
 // 05. 결과 화면 - 결과 격자, 소요 시간/찾은 금속/오답 수, 랭킹 목록, 나의 랭킹.
 // 정답 LED는 이 화면이 열릴 때 함께 켜진다.
+// 순차 공개:
+//  1) 내가 고른 칸을 모두 선택 표시로 보여 준다
+//  2) 고른 순서대로 한 칸씩 정답 일치(O)/오답(X)으로 바꾸며 찾은 금속·오답 수를 센다 (간격 revealStepSeconds)
+//  3) 못 찾은 정답까지 전체 정답을 공개하고, 마지막에 랭킹을 보여 준다
+// Setting.json revealStepSeconds 가 0이면 연출 없이 한꺼번에 보여 준다.
 public class ResultPanel : PanelBase
 {
+    public enum RevealStep { Picks, Correct, Wrong, Missed, Done }
+
     [Header("결과 격자 (정답 일치 / 정답 / 오답 마크)")]
     [SerializeField] private GridBoard board;
 
@@ -43,43 +58,141 @@ public class ResultPanel : PanelBase
     [Header("버튼")]
     [SerializeField] private Button homeButton;
 
+    [Header("순차 공개")]
+    [Tooltip("화면이 열린 뒤 고른 칸을 보여 주기까지 기다리는 시간(초)")]
+    [SerializeField] private float revealStartDelay = 0.4f;
+    [Tooltip("고른 칸을 모두 보여 준 뒤 한 칸씩 판정을 시작하기까지 기다리는 시간(초)")]
+    [SerializeField] private float picksHoldSeconds = 1.2f;
+    [Tooltip("못 찾은 정답을 보여 준 뒤 랭킹을 보여 주기까지 기다리는 시간(초)")]
+    [SerializeField] private float rankingDelay = 0.8f;
+
     // true = 다시 체험, false = 처음으로
     public event Action<bool> OnClose;
+    // 순차 공개 단계마다 알린다 (소리 연결용). Done 의 bool = 모두 찾음
+    public event Action<RevealStep, bool> OnReveal;
 
     private readonly List<RankRowView> rows = new List<RankRowView>();
+    private ResultData current;
+    private Coroutine revealRoutine;
+
+    private static float StepSeconds => JsonManager.instance != null ? Mathf.Max(0f, JsonManager.instance.gameDynamicData.revealStepSeconds) : 0f;
 
     private void Awake()
     {
         if (homeButton != null) homeButton.onClick.AddListener(() => OnClose?.Invoke(false));
     }
 
+    // 결과를 채운다. 순차 공개는 화면이 열릴 때(Show) 시작한다.
     public void Set(ResultData data)
     {
         if (data == null) return;
+        current = data;
 
         if (timeText != null) timeText.text = PlayPanel.FormatTime(data.seconds);
-        if (foundText != null) foundText.text = $"{data.foundCount}개";
-        if (wrongText != null) wrongText.text = $"{data.wrongCount}개";
+        SetCounts(0, 0);
 
-        SetBoard(data);
-        SetRows(data.top);
-
-        if (mineRow != null)
+        if (board != null)
         {
-            mineRow.gameObject.SetActive(data.mine != null);
-            if (data.mine != null) mineRow.Set(data.rank, data.mine);
+            board.Build(data.gridSize);
+            board.ResetCells();
         }
+        SetRows(data.top);
+        if (mineRow != null && data.mine != null) mineRow.Set(data.rank, data.mine);
+        SetRankingVisible(false);
     }
 
-    private void SetBoard(ResultData data)
+    public override void Show()
     {
-        if (board == null) return;
-        board.Build(data.gridSize);
-        board.ResetCells();
+        base.Show();
+        if (current == null) return;
+        if (revealRoutine != null) StopCoroutine(revealRoutine);
+        revealRoutine = StartCoroutine(Reveal(current));
+    }
 
-        foreach (var p in data.wrong) board.GetCell(p.x, p.y)?.ShowWrong(true);
-        foreach (var p in data.missed) board.GetCell(p.x, p.y)?.ShowReveal();
-        foreach (var p in data.found) board.GetCell(p.x, p.y)?.ShowFound(true);
+    public override void Hide()
+    {
+        if (revealRoutine != null) StopCoroutine(revealRoutine);
+        revealRoutine = null;
+        current = null;
+        base.Hide();
+    }
+
+    private IEnumerator Reveal(ResultData data)
+    {
+        float step = StepSeconds;
+        bool animate = step > 0f;
+        int found = 0, wrong = 0;
+
+        // 1) 내가 고른 칸 전체
+        if (animate && data.picks.Count > 0)
+        {
+            yield return new WaitForSecondsRealtime(revealStartDelay);
+            foreach (var pick in data.picks)
+            {
+                var cell = board != null ? board.GetCell(pick.pos.x, pick.pos.y) : null;
+                cell?.SetSelected(true);
+                cell?.Pop();
+            }
+            OnReveal?.Invoke(RevealStep.Picks, data.success);
+            yield return new WaitForSecondsRealtime(picksHoldSeconds);
+        }
+
+        // 2) 고른 순서대로 한 칸씩 맞음/틀림
+        foreach (var pick in data.picks)
+        {
+            var cell = board != null ? board.GetCell(pick.pos.x, pick.pos.y) : null;
+            cell?.SetSelected(false);
+            if (pick.correct)
+            {
+                found++;
+                cell?.ShowFound(true);
+            }
+            else
+            {
+                wrong++;
+                cell?.ShowWrong(true);
+            }
+            if (!animate) continue;
+
+            cell?.Pop();
+            SetCounts(found, wrong);
+            OnReveal?.Invoke(pick.correct ? RevealStep.Correct : RevealStep.Wrong, data.success);
+            yield return new WaitForSecondsRealtime(step);
+        }
+        SetCounts(data.foundCount, data.wrongCount);
+
+        // 3) 전체 정답 공개 (못 찾은 정답을 한꺼번에)
+        if (data.missed.Count > 0)
+        {
+            foreach (var p in data.missed)
+            {
+                var cell = board != null ? board.GetCell(p.x, p.y) : null;
+                cell?.ShowReveal();
+                if (animate) cell?.Pop();
+            }
+            if (animate)
+            {
+                OnReveal?.Invoke(RevealStep.Missed, data.success);
+                yield return new WaitForSecondsRealtime(rankingDelay);
+            }
+        }
+
+        SetRankingVisible(true);
+        OnReveal?.Invoke(RevealStep.Done, data.success);
+        revealRoutine = null;
+    }
+
+    private void SetCounts(int found, int wrong)
+    {
+        if (foundText != null) foundText.text = $"{found}개";
+        if (wrongText != null) wrongText.text = $"{wrong}개";
+    }
+
+    // 랭킹 목록과 나의 랭킹 줄은 순차 공개가 끝난 뒤에 보여 준다.
+    private void SetRankingVisible(bool on)
+    {
+        if (rowRoot != null) rowRoot.gameObject.SetActive(on);
+        if (mineRow != null) mineRow.gameObject.SetActive(on && current != null && current.mine != null);
     }
 
     private void SetRows(List<RankRecord> top)

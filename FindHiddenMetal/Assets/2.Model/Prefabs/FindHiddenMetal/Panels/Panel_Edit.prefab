@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4489513537242226956}
   - component: {fileID: 4224595915807217482}
   - component: {fileID: 1187666484533971554}
+  - component: {fileID: 1012402790917816532}
   m_Layer: 5
   m_Name: ClockwiseButton
   m_TagString: Untagged
@@ -122,6 +123,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1012402790917816532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 597831330151616834}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &772618861360025265
 GameObject:
   m_ObjectHideFlags: 0
@@ -785,8 +799,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 3, y: 101}
-  m_SizeDelta: {x: 1120, y: 1082}
+  m_AnchoredPosition: {x: 3.0065308, y: 101.493515}
+  m_SizeDelta: {x: 1115.8881, y: 1076.885}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &3143599863731196214
 MonoBehaviour:
@@ -825,6 +839,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellPrefab: {fileID: 1978461281992360276, guid: 12025b30e82a52846a6fb0cc24d27334, type: 3}
+  columns:
+  - {x: 0, y: 91.05769}
+  - {x: 93.13141, y: 184.29968}
+  - {x: 186.36539, y: 277.42947}
+  - {x: 279.4968, y: 370.55768}
+  - {x: 372.6351, y: 463.8063}
+  - {x: 465.8735, y: 556.9327}
+  - {x: 558.9983, y: 650.0607}
+  - {x: 652.1311, y: 743.3039}
+  - {x: 745.3656, y: 836.4295}
+  - {x: 838.4989, y: 929.55634}
+  - {x: 931.63446, y: 1022.80676}
+  - {x: 1024.8721, y: 1115.8881}
+  rows:
+  - {x: 0, y: 87.88641}
+  - {x: 89.99359, y: 177.88641}
+  - {x: 179.992, y: 267.88638}
+  - {x: 269.99838, y: 357.89603}
+  - {x: 359.99838, y: 447.88638}
+  - {x: 449.9951, y: 534.8849}
+  - {x: 536.9951, y: 624.8849}
+  - {x: 626.99524, y: 714.896}
+  - {x: 716.9999, y: 804.89453}
+  - {x: 806.9966, y: 894.8834}
+  - {x: 896.9966, y: 984.8834}
+  - {x: 987.00146, y: 1076.885}
 --- !u!1 &3883358721454681865
 GameObject:
   m_ObjectHideFlags: 0
@@ -987,6 +1027,7 @@ GameObject:
   - component: {fileID: 9036518010464092282}
   - component: {fileID: 538355922660486841}
   - component: {fileID: 4682048492121739321}
+  - component: {fileID: 6428056746896753113}
   m_Layer: 5
   m_Name: SaveButton
   m_TagString: Untagged
@@ -1097,6 +1138,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &6428056746896753113
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3970762937769139841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &4043185680699111163
 GameObject:
   m_ObjectHideFlags: 0
@@ -1315,6 +1369,7 @@ GameObject:
   - component: {fileID: 9145793896978163730}
   - component: {fileID: 4855028141435277594}
   - component: {fileID: 4444906386495718481}
+  - component: {fileID: 3036706978731600536}
   m_Layer: 5
   m_Name: RotateButton
   m_TagString: Untagged
@@ -1425,6 +1480,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3036706978731600536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4557862889866476941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &5319895646478904642
 GameObject:
   m_ObjectHideFlags: 0
@@ -2049,6 +2117,7 @@ GameObject:
   - component: {fileID: 1002391539292485843}
   - component: {fileID: 7170805956982168247}
   - component: {fileID: 4552716411186117730}
+  - component: {fileID: 2952918458464505414}
   m_Layer: 5
   m_Name: CancelButton
   m_TagString: Untagged
@@ -2159,6 +2228,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2952918458464505414
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6789393084050338790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &7095549650877907200
 GameObject:
   m_ObjectHideFlags: 0
@@ -2171,6 +2253,7 @@ GameObject:
   - component: {fileID: 4756114048770520134}
   - component: {fileID: 7572596477481794411}
   - component: {fileID: 3567666458045674447}
+  - component: {fileID: 2539805935685574977}
   m_Layer: 5
   m_Name: CounterClockwiseButton
   m_TagString: Untagged
@@ -2281,6 +2364,19 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2539805935685574977
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7095549650877907200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f524db75c50b0d4cb0ba8a0db85bdb8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  key: button
 --- !u!1 &7335566296825200868
 GameObject:
   m_ObjectHideFlags: 0

@@ -25,6 +25,10 @@ public class GridCellView : MonoBehaviour
     [Tooltip("남기지 않는 마크가 보였다 사라지는 시간(초)")]
     [FormerlySerializedAs("wrongShowSeconds")]
     [SerializeField] private float markShowSeconds = 1f;
+    [Tooltip("Pop(결과 순차 공개)에서 칸이 처음 커지는 배율")]
+    [SerializeField] private float popScale = 1.6f;
+    [Tooltip("Pop 배율이 1로 돌아오는 시간(초)")]
+    [SerializeField] private float popSeconds = 0.3f;
 
     public int X { get; private set; }
     public int Y { get; private set; }
@@ -33,6 +37,7 @@ public class GridCellView : MonoBehaviour
 
     private Coroutine foundRoutine;
     private Coroutine wrongRoutine;
+    private Coroutine popRoutine;
 
     private void Awake()
     {
@@ -68,6 +73,28 @@ public class GridCellView : MonoBehaviour
         if (revealMark != null) revealMark.SetActive(true);
     }
 
+    // 칸을 크게 보였다가 원래 크기로 줄인다 (결과 순차 공개에서 지금 공개한 칸 강조).
+    public void Pop()
+    {
+        StopRoutine(ref popRoutine);
+        if (isActiveAndEnabled) popRoutine = StartCoroutine(PopRoutine());
+    }
+
+    private IEnumerator PopRoutine()
+    {
+        // GridLayoutGroup은 형제 순서로 배치하므로 순서는 바꾸지 않는다 (커진 동안 옆 칸 마크 아래에 그려질 수 있음)
+        float t = 0f;
+        while (t < popSeconds)
+        {
+            t += Time.unscaledDeltaTime;
+            float k = Mathf.Clamp01(t / popSeconds);
+            transform.localScale = Vector3.one * Mathf.Lerp(popScale, 1f, 1f - (1f - k) * (1f - k));
+            yield return null;
+        }
+        transform.localScale = Vector3.one;
+        popRoutine = null;
+    }
+
     // 정답/오답 마크를 지우고 다시 고를 수 있게 한다 (다음 위치 확인 직전).
     public void ClearMarks()
     {
@@ -86,6 +113,8 @@ public class GridCellView : MonoBehaviour
 
     public void ResetEffect()
     {
+        StopRoutine(ref popRoutine);
+        transform.localScale = Vector3.one;
         ClearMarks();
         SetSelected(false);
         SetDebugTarget(false);

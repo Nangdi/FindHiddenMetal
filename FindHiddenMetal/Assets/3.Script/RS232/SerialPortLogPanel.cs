@@ -41,6 +41,8 @@ public class SerialPortLogPanel : MonoBehaviour
 
     [Header("토글 (ESC 키로 표시/숨김)")]
     [SerializeField] private GameObject togglePanel;
+    [Tooltip("설정창이 있으면 그 열림/닫힘을 따라간다 (키를 따로 받지 않아 둘이 어긋나지 않음). 비워두면 자동 탐색, 없으면 toggleKey로 직접 켜고 끈다.")]
+    [SerializeField] private SettingsPanelUI settingsPanel;
     [SerializeField] private KeyCode toggleKey = KeyCode.Escape;
     [Tooltip("시작할 때 로그 창을 숨긴 상태로 둘지 여부.")]
     [SerializeField] private bool hideOnStart = true;
@@ -78,6 +80,8 @@ public class SerialPortLogPanel : MonoBehaviour
         TrySubscribe();
         RefreshAllStatus();
 
+        if (settingsPanel == null) settingsPanel = FindObjectOfType<SettingsPanelUI>(true);
+
         if (hideOnStart && togglePanel != null)
             togglePanel.SetActive(false);
     }
@@ -87,12 +91,14 @@ public class SerialPortLogPanel : MonoBehaviour
         // SerialPortManager.Instance가 늦게 만들어지는 경우 대비
         if (!subscribed) TrySubscribe();
 
-        if (Input.GetKeyDown(toggleKey) && togglePanel != null)
-        {
-            togglePanel.SetActive(!togglePanel.activeSelf);
-            // 열 때마다 COM 목록을 새로 읽는다 (USB-Serial을 꽂고 뺀 경우)
-            if (togglePanel.activeSelf) RefreshComOptions();
-        }
+        if (togglePanel == null) return;
+        bool open = settingsPanel != null
+            ? settingsPanel.IsOpen
+            : Input.GetKeyDown(toggleKey) ? !togglePanel.activeSelf : togglePanel.activeSelf;
+        if (open == togglePanel.activeSelf) return;
+        togglePanel.SetActive(open);
+        // 열 때마다 COM 목록을 새로 읽는다 (USB-Serial을 꽂고 뺀 경우)
+        if (open) RefreshComOptions();
     }
 
     private void OnDestroy()

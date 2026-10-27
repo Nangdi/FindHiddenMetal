@@ -2,11 +2,14 @@
 #  - Assets/4.Sprite/Static/Static_<패널>.png : 화면별 정적 레이어 (1200x1920, 동적 요소 레이어는 숨기고 합성)
 #                                                Ready(회전 대기), Edit(정답 편집)는 시안이 없어 다른 화면 레이어로 만든다
 #  - Assets/4.Sprite/Parts/<부품>.png          : 버튼, 마크 등 동적 요소 (레이어만 합성 후 투명 영역 잘라냄)
+#  - Assets/4.Sprite/Parts/Cell_Select_Neutral.png, Mark_Select.png : 내가 고른 칸 표시 (진행 / 결과 화면). 시안이 없어
+#                                                Cell_Select, Mark_Match를 중립 회색으로 바꿔 만든다
 #  - Docs/Design/psd_layout.json               : 부품별 캔버스 중심 기준 좌표/크기 (프리팹 배치 참고용)
 # 같은 파일명으로 덮어쓰므로 Unity 연결(GUID)은 유지된다.
 #
 # 사용: pip install psd-tools pillow
 #       python Docs/Design/export_psd.py "<PSD 경로>"
+import colorsys
 import json
 import os
 import sys
@@ -112,6 +115,18 @@ def export_static(psd, gs):
     save(img.convert("RGB"), os.path.join(STATIC_DIR, "Static_Edit.png"))
 
 
+# 격자 칸을 꽉 채우는 마크. PSD에서 0.5px 위치에 놓여 있어 오른쪽 끝 열이 반투명(바탕색)으로 나오는데,
+# 칸에 붙이면 그 열이 흐린 틈으로 보이므로 불투명하게 채운다 (마크는 칸을 꽉 채우는 사각형이라 투명한 곳이 없다).
+# 칸 위치는 Unity 측정 도구(MetalGridMeasure)가 정적 레이어에서 소수점까지 잰다.
+CELL_MARKS = {"Cell_Select", "Mark_Match", "Mark_Correct", "Mark_Wrong"}
+
+
+def solidify(img):
+    img = img.copy()
+    img.putalpha(255)
+    return img
+
+
 def export_parts(psd, gs):
     layout = {}
     w, h = psd.width, psd.height
@@ -130,6 +145,8 @@ def export_parts(psd, gs):
             part = padded
             box = (box[0] - (pw - (box[2] - box[0])) // 2, box[1] - (ph - (box[3] - box[1])) // 2, 0, 0)
             box = (box[0], box[1], box[0] + pw, box[1] + ph)
+        if name in CELL_MARKS:
+            part = solidify(part)
         save(part, os.path.join(PARTS_DIR, f"{name}.png"))
         cx = (box[0] + box[2]) / 2 - w / 2
         cy = h / 2 - (box[1] + box[3]) / 2
@@ -137,6 +154,30 @@ def export_parts(psd, gs):
     with open(LAYOUT_PATH, "w", encoding="utf-8") as f:
         json.dump(layout, f, ensure_ascii=False, indent=2)
     print("layout →", LAYOUT_PATH)
+
+
+# 내가 고른 칸 표시 (중립 회색). PSD의 선택 표시(Cell_Select)는 결과 범례 '정답 일치'와 같은 주황 그림이라
+# 판정 전에는 같은 그림을 회색으로 바꿔 쓴다: 진행 화면 칸 고르기 = Cell_Select_Neutral, 결과 화면 첫 단계 = Mark_Select.
+# 주황 바탕은 회색(명도 비율 유지 → 테두리 음영 그대로), 흰 과녁은 흰색 그대로 둔다.
+NEUTRAL_COLOR = (128, 132, 142)
+NEUTRAL_MARKS = {"Cell_Select": "Cell_Select_Neutral", "Mark_Match": "Mark_Select"}
+
+
+def neutral(src):
+    out = []
+    for r, g, b, a in src.getdata():
+        _, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+        white = max(0.0, min(1.0, 1 - s / 0.8))  # 주황 바탕(채도 0.8) = 0, 흰 과녁(채도 0) = 1
+        out.append(tuple(round(c * v * (1 - white) + 255 * v * white) for c in NEUTRAL_COLOR) + (a,))
+    img = Image.new("RGBA", src.size)
+    img.putdata(out)
+    return img
+
+
+def export_neutral_marks():
+    for source, target in NEUTRAL_MARKS.items():
+        src = Image.open(os.path.join(PARTS_DIR, f"{source}.png")).convert("RGBA")
+        save(neutral(src), os.path.join(PARTS_DIR, f"{target}.png"))
 
 
 def font(file, size):
@@ -164,6 +205,7 @@ def main():
     gs = groups(psd)
     export_static(psd, gs)
     export_parts(psd, gs)
+    export_neutral_marks()
 
 
 if __name__ == "__main__":

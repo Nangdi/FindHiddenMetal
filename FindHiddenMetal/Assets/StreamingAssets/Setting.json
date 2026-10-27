@@ -7,6 +7,13 @@
     "rotateClockwise": true,
     "rankingKeepDays": 3,
     "rankingShowCount": 5,
+    "revealStepSeconds": 0.6,
+    "masterVolume": 1.0,
+    "bgmVolume": 0.5,
+    "sfxVolume": 1.0,
+    "bgmMuted": false,
+    "sfxMuted": false,
+    "bgmFadeSeconds": 1.0,
     "baseTargets": [
         { "x": 2, "y": 2 },
         { "x": 5, "y": 1 },

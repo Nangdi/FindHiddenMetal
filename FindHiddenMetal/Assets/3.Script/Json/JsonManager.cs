@@ -47,6 +47,18 @@ public class GameDynamicData
     public int rankingKeepDays = 3;
     // 랭킹 표시 인원 (미정, 임시값)
     public int rankingShowCount = 5;
+    // 결과 화면에서 고른 칸을 하나씩 맞음/틀림으로 보여 주는 간격(초). 0이면 한꺼번에 보여 준다. ESC 설정창에서도 바꾼다.
+    public float revealStepSeconds = 0.6f;
+
+    // 소리 (0~1). 소리 파일과 이름은 StreamingAssets/Audio/sound.json
+    public float masterVolume = 1f;
+    public float bgmVolume = 0.5f;
+    public float sfxVolume = 1f;
+    // 음소거. 볼륨 값은 그대로 두므로 풀면 원래 크기로 돌아온다.
+    public bool bgmMuted = false;
+    public bool sfxMuted = false;
+    // BGM 이 바뀔 때 앞 곡이 줄어들고 다음 곡이 커지는 시간(초). ESC 설정창에서도 바꾼다.
+    public float bgmFadeSeconds = 1f;
     // 회전 0단계일 때 탐지목표물 8개의 격자 좌표. 정답 편집 모드(F3)에서 실제 원판을 보고 입력한다.
     public List<GridPos> baseTargets = new List<GridPos>
     {
