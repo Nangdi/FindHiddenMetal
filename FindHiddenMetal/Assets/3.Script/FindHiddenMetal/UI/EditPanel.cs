@@ -5,11 +5,11 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 정답 편집 모드 (운영자용, 대기 화면에서 F3).
-// 1) 지금 원판 위치에서 금속이 있는 칸을 목표 개수만큼 터치한다. 이 배치가 회전 0단계 정답이 된다.
+// 1) 컨트롤러에 지금 원판 단계를 묻고(STATE?), 그 단계에서 금속이 있는 칸을 목표 개수만큼 터치한다.
 // 2) 회전 방향(시계/반시계)을 고른다.
 // 3) 원판 회전 테스트: 원판을 돌리고, 고른 방향으로 계산한 예상 위치를 격자에 표시한다.
-//    실제 금속 위치와 다르면 방향을 바꿔 본다. 예상 위치를 보는 동안에는 칸을 고칠 수 없다(4번 돌리면 처음 위치).
-// 4) 저장: Setting.json(baseTargets, rotateClockwise)에 저장하고, 지금 원판 단계를 회전한 횟수로 맞춘다.
+//    실제 금속 위치와 다르면 방향을 바꿔 본다. 예상 위치를 보는 동안에는 칸을 고칠 수 없다(입력한 단계로 돌아오면 다시 고칠 수 있음).
+// 4) 저장: 입력한 배치를 0단계로 되돌려 Setting.json(baseTargets, rotateClockwise)에 저장한다.
 public class EditPanel : PanelBase
 {
     [Header("격자 (선택 = Highlight, 예상 위치 = FoundMark)")]
@@ -34,8 +34,8 @@ public class EditPanel : PanelBase
     [SerializeField] private Button cancelButton;
 
     public event Action OnRotateRequest;
-    // (0단계 정답, 시계 방향 여부, 편집 중 회전한 횟수)
-    public event Action<List<GridPos>, bool, int> OnSave;
+    // (0단계 정답, 시계 방향 여부)
+    public event Action<List<GridPos>, bool> OnSave;
     public event Action OnCancel;
 
     public bool IsRotating { get; private set; }
@@ -44,9 +44,13 @@ public class EditPanel : PanelBase
     private int gridSize;
     private int targetCount = 8;
     private bool clockwise = true;
-    private int rotations;
+    private int inputStage;   // 입력한 배치의 원판 단계
+    private int currentStage; // 지금 원판 단계
+    private int rotations;    // 편집 중 회전한 횟수
+    private bool edited;      // 칸을 직접 고쳤는지 (단계 응답이 늦게 와도 입력을 덮지 않기 위해)
+    private List<GridPos> savedBase = new List<GridPos>();
 
-    private bool IsPreview => rotations % TargetLayout.RotationSteps != 0;
+    private bool IsPreview => currentStage != inputStage;
     private string AccentHex => ColorUtility.ToHtmlStringRGB(accentColor);
 
     private void Awake()
@@ -59,38 +63,53 @@ public class EditPanel : PanelBase
         if (cancelButton != null) cancelButton.onClick.AddListener(() => { if (!IsRotating) OnCancel?.Invoke(); });
     }
 
-    // current: 지금 저장된 0단계 정답 (처음 선택 상태로 보여 준다)
-    public void Begin(int size, IEnumerable<GridPos> current, int count, bool isClockwise)
+    // baseTargets: 지금 저장된 0단계 정답 / stage: 지금 원판 단계 (그 단계 정답을 처음 선택 상태로 보여 준다)
+    public void Begin(int size, IList<GridPos> baseTargets, int count, bool isClockwise, int stage)
     {
         gridSize = size;
         targetCount = Mathf.Max(1, count);
         clockwise = isClockwise;
-        rotations = 0;
+        savedBase = baseTargets != null ? new List<GridPos>(baseTargets) : new List<GridPos>();
         IsRotating = false;
-        selected.Clear();
-
         if (board != null)
         {
             board.Build(size);
             board.ResetCells();
-            if (current != null)
+        }
+        SetInputStage(stage);
+    }
+
+    // 컨트롤러가 STATE,n 으로 지금 단계를 알려 줬을 때. 아직 돌리거나 고치지 않았으면 그 단계로 다시 맞춘다.
+    public void StateReceived(int stage)
+    {
+        if (IsRotating || rotations > 0 || edited || stage == inputStage) return;
+        SetInputStage(stage);
+    }
+
+    private void SetInputStage(int stage)
+    {
+        inputStage = currentStage = stage;
+        rotations = 0;
+        edited = false;
+        selected.Clear();
+        if (board != null)
+        {
+            foreach (var p in TargetLayout.GetTargets(savedBase, gridSize, stage, clockwise))
             {
-                foreach (var p in current)
-                {
-                    var cell = board.GetCell(p.x, p.y);
-                    if (cell != null && !selected.Contains(cell) && selected.Count < targetCount) selected.Add(cell);
-                }
+                var cell = board.GetCell(p.x, p.y);
+                if (cell != null && !selected.Contains(cell) && selected.Count < targetCount) selected.Add(cell);
             }
         }
         Refresh();
     }
 
-    // 원판 회전이 끝났을 때 (시간 초과로 넘어간 경우 포함)
-    public void RotationDone()
+    // 원판 회전이 끝났을 때 (시간 초과로 넘어간 경우 포함). stage: 회전 후 원판 단계
+    public void RotationDone(int stage)
     {
         if (!IsRotating) return;
         IsRotating = false;
         rotations++;
+        currentStage = stage;
         Refresh();
     }
 
@@ -103,6 +122,7 @@ public class EditPanel : PanelBase
             if (selected.Count >= targetCount) return;
             selected.Add(cell);
         }
+        edited = true;
         Refresh();
     }
 
@@ -124,7 +144,8 @@ public class EditPanel : PanelBase
     private void Save()
     {
         if (IsRotating || selected.Count != targetCount) return;
-        OnSave?.Invoke(Selection(), clockwise, rotations);
+        // 입력한 배치는 inputStage 단계이므로 그만큼 거꾸로 돌려 0단계 정답으로 만든다.
+        OnSave?.Invoke(TargetLayout.GetTargets(Selection(), gridSize, -inputStage, clockwise), clockwise);
     }
 
     private List<GridPos> Selection()
@@ -138,24 +159,23 @@ public class EditPanel : PanelBase
     {
         RefreshBoard();
 
-        int step = rotations % TargetLayout.RotationSteps;
         if (statusText != null)
         {
             if (IsRotating)
                 statusText.text = "원판이 회전하는 중입니다...";
             else if (IsPreview)
-                statusText.text = $"<color=#{AccentHex}>회전 {rotations}번</color> 후 예상 위치입니다.\n실제 금속 위치와 맞는지 확인하세요. 다르면 회전 방향을 바꿔 보세요.";
+                statusText.text = $"<color=#{AccentHex}>{currentStage}단계</color> 예상 위치입니다.\n실제 금속 위치와 맞는지 확인하세요. 다르면 회전 방향을 바꿔 보세요.";
             else
-                statusText.text = $"지금 원판에서 금속이 있는 칸 <color=#{AccentHex}>{targetCount}곳</color>을 터치하세요.\n이 배치가 회전 0단계 정답이 됩니다.";
+                statusText.text = $"지금 원판은 <color=#{AccentHex}>{inputStage}단계</color>입니다.\n금속이 있는 칸 <color=#{AccentHex}>{targetCount}곳</color>을 터치하세요.";
         }
         if (countText != null) countText.text = $"선택 {selected.Count} / {targetCount}";
         if (rotateInfoText != null)
         {
             rotateInfoText.text = rotations == 0
                 ? "원판을 90° 돌려 예상 위치를 확인합니다."
-                : step == 0
-                    ? $"회전 {rotations}번 - 처음 위치로 돌아왔습니다. 칸을 고칠 수 있습니다."
-                    : $"회전 {rotations}번 ({TargetLayout.RotationSteps - step}번 더 돌리면 처음 위치)";
+                : IsPreview
+                    ? $"회전 {rotations}번 - 지금 {currentStage}단계 (입력한 {inputStage}단계로 돌아오면 칸을 고칠 수 있음)"
+                    : $"회전 {rotations}번 - 입력한 {inputStage}단계로 돌아왔습니다. 칸을 고칠 수 있습니다.";
         }
 
         if (clockwiseHighlight != null) clockwiseHighlight.SetActive(clockwise);
@@ -184,7 +204,7 @@ public class EditPanel : PanelBase
             return;
         }
 
-        foreach (var p in TargetLayout.GetTargets(Selection(), gridSize, rotations, clockwise))
+        foreach (var p in TargetLayout.GetTargets(Selection(), gridSize, currentStage - inputStage, clockwise))
             board.GetCell(p.x, p.y)?.ShowFound(true);
     }
 }

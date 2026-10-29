@@ -37,7 +37,7 @@ public class GameDynamicData
     public float timeLimitSeconds = 60f;
     // 체험 방법 → 체험 시작 사이 카운트다운(초). 0 이하이면 바로 시작.
     public int countdownSeconds = 3;
-    // 무입력 시 대기화면 복귀(초). 체험 안내·진행·결과 화면에 적용. 0 이하이면 사용 안 함. ESC 설정창에서도 바꾼다.
+    // 무입력 시 대기화면 복귀(초). 체험 안내·결과 화면에 적용 (체험 중에는 적용 안 함). 0 이하이면 사용 안 함. ESC 설정창에서도 바꾼다.
     public float idleTimeoutSeconds = 30f;
     // 원판 회전 완료 신호(ROT_DONE)를 기다리는 최대 시간(초). 넘으면 회전된 것으로 보고 진행.
     public float rotateTimeoutSeconds = 15f;

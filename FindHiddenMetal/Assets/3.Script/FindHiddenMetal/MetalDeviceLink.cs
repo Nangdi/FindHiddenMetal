@@ -8,6 +8,8 @@ public class DeviceStateData
 {
     // 회전 원판의 현재 단계 (0~3). 재실행해도 정답 좌표가 맞도록 저장한다.
     public int rotationIndex;
+    // 마지막 회전이 역방향(단계 감소)이었는지. 0→1→2→3→2→1→0 왕복 중 어느 쪽으로 가는지 이어가기 위해 저장한다.
+    public bool reverse;
 }
 
 // 금속탐지 장치 컨트롤러와의 RS232 통신.
@@ -17,6 +19,8 @@ public class DeviceStateData
 // 컨트롤러 → PC : ROT_DONE[,n] / STATE,n / ERR,내용
 //
 // 컨트롤러 id는 구분하지 않는다: 열린 어느 포트로 들어온 메시지든 똑같이 처리하고, 명령은 열린 모든 포트로 보낸다.
+// 원판은 0→1→2→3→2→1→0→1… 처럼 왕복한다. 방향은 컨트롤러가 정하고 ROT_DONE,n 으로 단계를 알려 준다.
+// n이 없거나 응답이 없으면 PC가 같은 왕복 순서로 다음 단계를 계산한다.
 // 열린 포트가 없으면(장치 없음, port.json 비활성) 회전을 흉내 내어 체험 흐름이 멈추지 않게 한다.
 public class MetalDeviceLink : SerialPortManager
 {
@@ -36,6 +40,8 @@ public class MetalDeviceLink : SerialPortManager
 
     // 회전 완료 (현재 단계). 시간 초과로 넘어간 경우에도 호출된다.
     public event Action<int> OnRotationDone;
+    // STATE,n 수신 (컨트롤러가 알려 준 현재 단계)
+    public event Action<int> OnStateReceived;
 
     public int RotationIndex => state.rotationIndex;
     public bool IsRotating { get; private set; }
@@ -65,7 +71,21 @@ public class MetalDeviceLink : SerialPortManager
     {
         base.Start();
         // 컨트롤러가 현재 단계를 알고 있으면 STATE,n 으로 맞춰 준다. 응답이 없으면 저장값을 쓴다.
+        RequestState();
+    }
+
+    // 컨트롤러에 현재 단계를 묻는다. 응답(STATE,n)은 OnStateReceived. 포트가 없으면 아무 일도 없다.
+    public void RequestState()
+    {
         if (IsDeviceOpen) SendAll(CmdState);
+    }
+
+    // 다음 회전의 단계 변화. 끝(0, 3)에서 방향을 바꾸고, 그 사이에서는 하던 방향을 이어간다.
+    public int NextStep()
+    {
+        if (state.rotationIndex >= TargetLayout.RotationSteps - 1) return -1;
+        if (state.rotationIndex <= 0) return 1;
+        return state.reverse ? -1 : 1;
     }
 
     // 대기 화면에서 체험 시작을 눌렀을 때.
@@ -73,7 +93,7 @@ public class MetalDeviceLink : SerialPortManager
     public void LedOn() => SendIfOpen(CmdLedOn);
     public void LedOff() => SendIfOpen(CmdLedOff);
 
-    // 원판을 90도 돌린다. 완료되면 OnRotationDone.
+    // 원판을 90도 돌린다 (방향은 컨트롤러가 왕복 순서로 정함). 완료되면 OnRotationDone.
     public void Rotate()
     {
         if (IsRotating) return;
@@ -95,7 +115,7 @@ public class MetalDeviceLink : SerialPortManager
         yield return new WaitForSecondsRealtime(seconds);
         rotateRoutine = null;
         if (isTimeout) Debug.LogWarning($"[장치] {MsgRotateDone} 응답 없음({seconds}s) - 회전된 것으로 처리");
-        CompleteRotation(state.rotationIndex + 1);
+        CompleteRotation(state.rotationIndex + NextStep());
     }
 
     protected override void ReceivedData(int controllerId, string data)
@@ -110,8 +130,8 @@ public class MetalDeviceLink : SerialPortManager
         switch (head)
         {
             case MsgRotateDone:
-                // 단계 값이 없으면 PC가 저장한 단계에서 하나 올린다.
-                index = parts.Length > 1 && int.TryParse(parts[1], out int n) ? n : state.rotationIndex + 1;
+                // 단계 값이 없으면 PC가 저장한 단계에서 왕복 순서대로 한 칸 옮긴다.
+                index = parts.Length > 1 && int.TryParse(parts[1], out int n) ? n : state.rotationIndex + NextStep();
                 CompleteRotation(index);
                 break;
             case MsgState:
@@ -119,6 +139,7 @@ public class MetalDeviceLink : SerialPortManager
                 {
                     SetRotationIndex(index);
                     Debug.Log($"[Ctrl {controllerId}] 원판 단계 동기화: {state.rotationIndex}");
+                    OnStateReceived?.Invoke(state.rotationIndex);
                 }
                 break;
             case MsgError:
@@ -138,7 +159,10 @@ public class MetalDeviceLink : SerialPortManager
             rotateRoutine = null;
         }
 
-        SetRotationIndex(index);
+        // 컨트롤러가 알려 준 단계로 왕복 방향도 맞춘다 (끝에 닿으면 NextStep이 알아서 뒤집는다).
+        int normalized = Normalize(index);
+        if (normalized != state.rotationIndex) state.reverse = normalized < state.rotationIndex;
+        SetRotationIndex(normalized);
         if (!IsRotating) return; // 요청하지 않은 ROT_DONE은 단계만 맞춘다.
 
         IsRotating = false;
