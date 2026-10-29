@@ -4,14 +4,14 @@ using System.Text;
 using UnityEngine;
 
 // 숨은 금속 찾기 체험 흐름.
-// Idle → Guide → Countdown → Play → Result → Ready(원판 회전 대기) → Idle (또는 다시 체험 시 Countdown)
+// Idle → Guide → Countdown → Play → Result → Ready(원판 회전 대기) → Idle
 //
 // - 칸을 8개 모두 고르고 정답 확인을 한 번 누르면 바로 판정하고 결과 화면 + 장치 LED 점등(정답공개).
 //   결과 화면은 고른 칸을 고른 순서대로 하나씩 맞음/틀림으로 보여 준다(ResultPanel 순차 공개).
 // - 제한 시간이 끝나면 그때까지 고른 칸으로 판정한다(없으면 0개). 두 경우 모두 랭킹에 기록한다.
 // - 체험 중 HOME을 누르면 기록 없이 원판을 돌리고 대기 화면으로 간다.
 // - 결과 화면을 닫으면 LED 소등 + 원판 90도 회전, 완료 신호를 받은 뒤 다음 체험을 받는다.
-// - 대기 화면에서 체험 시작을 누르면 컨트롤러에 START를 보낸다.
+// - 3·2·1 카운트가 끝나고 체험이 시작될 때 컨트롤러에 START를 보낸다.
 // - 체험 안내·결과 화면에서 idleTimeoutSeconds(기본 30초) 동안 입력이 없으면 대기 화면으로 간다.
 //   결과 화면이면 결과 닫기와 같이 원판을 돌린다. 체험 중에는 무입력이어도 제한 시간까지 진행한다.
 // - 대기 화면에서 F3: 정답 편집 모드(Edit). 지금 원판 배치를 0단계 정답으로 입력하고 회전 방향을 정한다.
@@ -43,7 +43,6 @@ public class FlowController : MonoBehaviour
     private readonly GridJudge judge = new GridJudge();
     private RankingStore ranking;
     private float lastInputTime;
-    private bool replayAfterReady;
     private bool finishing;
     private bool showDebugAnswers;
 
@@ -150,13 +149,13 @@ public class FlowController : MonoBehaviour
     private void StartExperience()
     {
         if (Current != State.Idle) return;
-        if (Device != null) Device.SendStart();
         GoTo(State.Guide);
     }
 
     private void BeginPlay()
     {
         finishing = false;
+        if (Device != null) Device.SendStart();
         int rotation = Device != null ? Device.RotationIndex : 0;
         var targets = TargetLayout.GetTargets(Config.baseTargets, Config.gridSize, rotation, Config.rotateClockwise);
         judge.Begin(targets);
@@ -235,16 +234,15 @@ public class FlowController : MonoBehaviour
         GoTo(State.Result);
     }
 
-    private void CloseResult(bool replay)
+    private void CloseResult()
     {
         if (Current != State.Result) return;
-        ResetDevice(replay);
+        ResetDevice();
     }
 
-    // LED 소등 + 원판 회전. 회전이 끝나면 OnRotationDone에서 다음 화면으로 간다.
-    private void ResetDevice(bool replay)
+    // LED 소등 + 원판 회전. 회전이 끝나면 OnRotationDone에서 대기 화면으로 간다.
+    private void ResetDevice()
     {
-        replayAfterReady = replay;
         GoTo(State.Ready);
         if (Device != null) Device.LedOff();
 
@@ -262,7 +260,7 @@ public class FlowController : MonoBehaviour
         }
         if (Current != State.Ready) return;
         Debug.Log($"원판 회전 완료 - {index}단계");
-        GoTo(replayAfterReady ? State.Countdown : State.Idle);
+        GoTo(State.Idle);
     }
 
     // 관람객이 떠난 경우: 마지막 입력 후 idleTimeoutSeconds가 지나면 대기 화면으로.
@@ -280,7 +278,7 @@ public class FlowController : MonoBehaviour
                 break;
             case State.Result:
                 Debug.Log("무입력 - 결과 화면 닫기");
-                ResetDevice(false);
+                ResetDevice();
                 break;
         }
     }
@@ -291,7 +289,7 @@ public class FlowController : MonoBehaviour
         if (Current != State.Play || finishing) return;
         Debug.Log("체험 중단 - 기록 없이 대기 화면으로");
         if (GameManager.Instance != null) GameManager.Instance.EndGame();
-        ResetDevice(false);
+        ResetDevice();
     }
 
     #region 정답 편집 모드

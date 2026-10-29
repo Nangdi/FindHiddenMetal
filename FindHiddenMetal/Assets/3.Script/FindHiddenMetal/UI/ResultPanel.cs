@@ -66,8 +66,8 @@ public class ResultPanel : PanelBase
     [Tooltip("못 찾은 정답을 보여 준 뒤 랭킹을 보여 주기까지 기다리는 시간(초)")]
     [SerializeField] private float rankingDelay = 0.8f;
 
-    // true = 다시 체험, false = 처음으로
-    public event Action<bool> OnClose;
+    // 홈 버튼으로 결과 화면을 닫을 때
+    public event Action OnClose;
     // 순차 공개 단계마다 알린다 (소리 연결용). Done 의 bool = 모두 찾음
     public event Action<RevealStep, bool> OnReveal;
 
@@ -79,7 +79,7 @@ public class ResultPanel : PanelBase
 
     private void Awake()
     {
-        if (homeButton != null) homeButton.onClick.AddListener(() => OnClose?.Invoke(false));
+        if (homeButton != null) homeButton.onClick.AddListener(() => OnClose?.Invoke());
     }
 
     // 결과를 채운다. 순차 공개는 화면이 열릴 때(Show) 시작한다.
