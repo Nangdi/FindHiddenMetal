@@ -1,6 +1,6 @@
 {
     "gridSize": 12,
-    "timeLimitSeconds": 60.0,
+    "timeLimitSeconds": 120.0,
     "countdownSeconds": 3,
     "idleTimeoutSeconds": 30.0,
     "rotateTimeoutSeconds": 15.0,

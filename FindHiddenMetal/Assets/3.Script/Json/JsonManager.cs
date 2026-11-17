@@ -34,7 +34,7 @@ public class GameDynamicData
     // 격자 한 변의 칸 수 (12 → 12x12). 바꾸면 Static_Play/Static_Result.png의 격자 그림도 바꿔야 한다.
     public int gridSize = 12;
     // 제한 시간(초). 0 이하이면 무제한.
-    public float timeLimitSeconds = 60f;
+    public float timeLimitSeconds = 120f;
     // 체험 방법 → 체험 시작 사이 카운트다운(초). 0 이하이면 바로 시작.
     public int countdownSeconds = 3;
     // 무입력 시 대기화면 복귀(초). 체험 안내·결과 화면에 적용 (체험 중에는 적용 안 함). 0 이하이면 사용 안 함. ESC 설정창에서도 바꾼다.
