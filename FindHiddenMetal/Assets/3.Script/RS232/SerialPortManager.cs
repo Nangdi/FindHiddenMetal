@@ -12,6 +12,16 @@ public class SerialPortManager : MonoBehaviour
     public event Action<int, string> OnDataReceived;
     public event Action<int, string> OnDataSent;
     public event Action<int, bool> OnConnectionChanged;
+    // 수신 해석 결과 등 프로젝트 쪽 안내 문구 (디버그 패널에 함께 보여 준다). bool = 경고 여부
+    public event Action<string, bool> OnInfo;
+
+    // 콘솔 로그와 디버그 패널에 같이 남긴다.
+    protected void Info(string message, bool warning = false)
+    {
+        if (warning) Debug.LogWarning(message);
+        else Debug.Log(message);
+        OnInfo?.Invoke(message, warning);
+    }
 
     public bool IsControllerOpen(int controllerId)
     {

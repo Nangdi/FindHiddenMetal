@@ -41,6 +41,10 @@ public class GameDynamicData
     public float idleTimeoutSeconds = 30f;
     // 원판 회전 완료 신호(ROT_DONE)를 기다리는 최대 시간(초). 넘으면 회전된 것으로 보고 진행.
     public float rotateTimeoutSeconds = 15f;
+    // 체험 시작 전 컨트롤러에 현재 단계(STATE?)를 묻고 응답(STATE,n)을 기다리는 최대 시간(초).
+    // "체험 시작하기"를 누를 때 묻고, 안내·카운트다운 동안 받은 단계로 정답을 정한다. 넘으면 PC 저장값을 쓴다.
+    // 0이면 묻지 않고 저장값을 쓴다. ESC 설정창에서도 바꾼다.
+    public float stateCheckTimeoutSeconds = 2f;
     // 원판 회전 방향 (위에서 봤을 때 시계 방향이면 true)
     public bool rotateClockwise = true;
     // 랭킹 보관 기간(일). 지난 기록은 삭제한다.

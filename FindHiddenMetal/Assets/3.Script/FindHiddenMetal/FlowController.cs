@@ -11,6 +11,8 @@ using UnityEngine;
 // - 제한 시간이 끝나면 그때까지 고른 칸으로 판정한다(없으면 0개). 두 경우 모두 랭킹에 기록한다.
 // - 체험 중 HOME을 누르면 기록 없이 원판을 돌리고 대기 화면으로 간다.
 // - 결과 화면을 닫으면 LED 소등 + 원판 90도 회전, 완료 신호를 받은 뒤 다음 체험을 받는다.
+// - "체험 시작하기"를 누르면 컨트롤러에 STATE?로 원판 단계를 묻고, 받은 단계(STATE,n)로 이번 체험 정답을 정한다.
+//   stateCheckTimeoutSeconds 안에 응답이 없으면 PC 저장 단계로 진행하고 경고를 남긴다.
 // - 3·2·1 카운트가 끝나고 체험이 시작될 때 컨트롤러에 START를 보낸다.
 // - 체험 안내·결과 화면에서 idleTimeoutSeconds(기본 30초) 동안 입력이 없으면 대기 화면으로 간다.
 //   결과 화면이면 결과 닫기와 같이 원판을 돌린다. 체험 중에는 무입력이어도 제한 시간까지 진행한다.
@@ -45,6 +47,11 @@ public class FlowController : MonoBehaviour
     private float lastInputTime;
     private bool finishing;
     private bool showDebugAnswers;
+    // 체험 전 단계 확인(STATE?)을 보낸 시각. 보내지 않았으면 -1.
+    private float stageCheckTime = -1f;
+    // 진행 화면에서 단계 응답을 기다리는 중 (타이머·입력 시작 전)
+    private bool waitingStage;
+    private Coroutine playRoutine;
 
     private static GameDynamicData Config => JsonManager.instance.gameDynamicData;
     private static MetalDeviceLink Device => MetalDeviceLink.Link;
@@ -106,7 +113,7 @@ public class FlowController : MonoBehaviour
 
         if (Input.GetKeyDown(editKey)) ToggleEdit();
 
-        if (Current == State.Play && !finishing && GameTimer.Instance != null)
+        if (Current == State.Play && !finishing && !waitingStage && GameTimer.Instance != null)
         {
             var timer = GameTimer.Instance;
             if (playPanel != null) playPanel.SetTime(timer.CurrentTime, timer.TimeLimit);
@@ -149,12 +156,51 @@ public class FlowController : MonoBehaviour
     private void StartExperience()
     {
         if (Current != State.Idle) return;
+        RequestStageCheck();
         GoTo(State.Guide);
+    }
+
+    // "체험 시작하기"를 누를 때 컨트롤러에 현재 단계를 묻는다. 응답(STATE,n)은 안내·카운트다운 동안 받아 둔다.
+    private void RequestStageCheck()
+    {
+        stageCheckTime = -1f;
+        if (Device == null || !Device.IsDeviceOpen || Config.stateCheckTimeoutSeconds <= 0f) return;
+        stageCheckTime = Time.unscaledTime;
+        Device.RequestState();
     }
 
     private void BeginPlay()
     {
         finishing = false;
+        if (playPanel != null) playPanel.SetInteractable(false);
+        if (playRoutine != null) StopCoroutine(playRoutine);
+        playRoutine = StartCoroutine(BeginPlayRoutine());
+    }
+
+    // 정답은 컨트롤러가 알려 준 단계로 정한다. 안내·카운트다운 동안 응답이 없었으면 남은 시간만큼 더 기다리고,
+    // 그래도 없으면 PC 저장값으로 진행한다 (체험이 멈추지 않게).
+    private IEnumerator BeginPlayRoutine()
+    {
+        if (Device != null && Device.IsDeviceOpen && Config.stateCheckTimeoutSeconds > 0f)
+        {
+            if (stageCheckTime < 0f) RequestStageCheck(); // 카운트다운 없이 바로 시작된 경우 등
+            waitingStage = true;
+            while (Current == State.Play && Device.LastStateTime < stageCheckTime
+                   && Time.unscaledTime - stageCheckTime < Config.stateCheckTimeoutSeconds)
+                yield return null;
+            waitingStage = false;
+            if (Current != State.Play) { playRoutine = null; yield break; }
+
+            if (Device.LastStateTime < stageCheckTime)
+                Device.Note($"[단계 확인] 응답 없음({Config.stateCheckTimeoutSeconds}s) - PC 저장값 {Device.RotationIndex}단계로 진행", true);
+        }
+        stageCheckTime = -1f;
+        playRoutine = null;
+        StartPlay();
+    }
+
+    private void StartPlay()
+    {
         if (Device != null) Device.SendStart();
         int rotation = Device != null ? Device.RotationIndex : 0;
         var targets = TargetLayout.GetTargets(Config.baseTargets, Config.gridSize, rotation, Config.rotateClockwise);

@@ -4,6 +4,7 @@
     "countdownSeconds": 3,
     "idleTimeoutSeconds": 30.0,
     "rotateTimeoutSeconds": 15.0,
+    "stateCheckTimeoutSeconds": 2.0,
     "rotateClockwise": true,
     "rankingKeepDays": 3,
     "rankingShowCount": 5,

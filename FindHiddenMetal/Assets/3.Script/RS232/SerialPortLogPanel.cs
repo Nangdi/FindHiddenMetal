@@ -108,6 +108,7 @@ public class SerialPortLogPanel : MonoBehaviour
         manager.OnDataReceived -= HandleReceived;
         manager.OnDataSent -= HandleSent;
         manager.OnConnectionChanged -= HandleConnectionChanged;
+        manager.OnInfo -= HandleInfo;
         subscribed = false;
     }
 
@@ -120,12 +121,14 @@ public class SerialPortLogPanel : MonoBehaviour
         manager.OnDataReceived += HandleReceived;
         manager.OnDataSent += HandleSent;
         manager.OnConnectionChanged += HandleConnectionChanged;
+        manager.OnInfo += HandleInfo;
         subscribed = true;
         RefreshAllStatus();
     }
 
     private void HandleReceived(int id, string data) => AppendLog($"[Receive][Ctrl {id}] {data}");
     private void HandleSent(int id, string data) => AppendLog($"[Send][Ctrl {id}] {data}");
+    private void HandleInfo(string message, bool warning) => AppendLog(warning ? $"[Warn] {message}" : $"[Info] {message}");
 
     private void HandleConnectionChanged(int id, bool isOpen)
     {

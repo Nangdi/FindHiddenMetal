@@ -44,6 +44,8 @@ public class MetalDeviceLink : SerialPortManager
     public event Action<int> OnStateReceived;
 
     public int RotationIndex => state.rotationIndex;
+    // 마지막으로 STATE,n 을 받은 시각 (Time.unscaledTime). 받은 적 없으면 -1.
+    public float LastStateTime { get; private set; } = -1f;
     public bool IsRotating { get; private set; }
     public bool IsDeviceOpen => IsAnyOpen;
 
@@ -79,6 +81,9 @@ public class MetalDeviceLink : SerialPortManager
     {
         if (IsDeviceOpen) SendAll(CmdState);
     }
+
+    // 디버그 패널·로그에 안내를 남긴다 (FlowController의 단계 확인 결과 등).
+    public void Note(string message, bool warning = false) => Info(message, warning);
 
     // 다음 회전의 단계 변화. 끝(0, 3)에서 방향을 바꾸고, 그 사이에서는 하던 방향을 이어간다.
     public int NextStep()
@@ -135,12 +140,18 @@ public class MetalDeviceLink : SerialPortManager
                 CompleteRotation(index);
                 break;
             case MsgState:
-                if (parts.Length > 1 && int.TryParse(parts[1], out index))
+                if (parts.Length > 1 && int.TryParse(parts[1], out index)
+                    && index >= 0 && index < TargetLayout.RotationSteps)
                 {
+                    int before = state.rotationIndex;
                     SetRotationIndex(index);
-                    Debug.Log($"[Ctrl {controllerId}] 원판 단계 동기화: {state.rotationIndex}");
+                    LastStateTime = Time.unscaledTime;
+                    // 장치가 알려 준 단계가 PC 저장값과 다르면 장치 값을 쓴다 (어느 쪽이 어긋났는지 추적용 로그).
+                    if (before != index) Info($"[단계 확인] PC {before}단계 ↔ 장치 {index}단계 - 장치 값 사용", true);
+                    else Info($"[단계 확인] 장치 {index}단계 (PC 저장값과 같음)");
                     OnStateReceived?.Invoke(state.rotationIndex);
                 }
+                else Info($"[단계 확인] 해석 못 함 - 무시: {data}", true);
                 break;
             case MsgError:
                 Debug.LogError($"[Ctrl {controllerId}] 장치 오류: {data}");
